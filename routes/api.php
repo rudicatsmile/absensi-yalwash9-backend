@@ -82,3 +82,11 @@ Route::get('/leaves/{id}', [App\Http\Controllers\Api\LeaveController::class, 'sh
 Route::post('/leaves', [App\Http\Controllers\Api\LeaveController::class, 'store'])->middleware('auth:sanctum');
 Route::put('/leaves/{id}', [App\Http\Controllers\Api\LeaveController::class, 'update'])->middleware('auth:sanctum');
 Route::post('/leaves/{id}/cancel', [App\Http\Controllers\Api\LeaveController::class, 'cancel'])->middleware('auth:sanctum');
+
+// permit
+Route::get('/permit-types', [App\Http\Controllers\Api\PermitController::class, 'getPermitTypes'])->middleware('auth:sanctum');
+Route::get('/permits', [App\Http\Controllers\Api\PermitController::class, 'index'])->middleware('auth:sanctum');
+Route::get('/permits/{id}', [App\Http\Controllers\Api\PermitController::class, 'show'])->middleware('auth:sanctum');
+Route::post('/permits', [App\Http\Controllers\Api\PermitController::class, 'store'])->middleware('auth:sanctum');
+Route::put('/permits/{id}', [App\Http\Controllers\Api\PermitController::class, 'update'])->middleware('auth:sanctum');
+Route::post('/permits/{id}/cancel', [App\Http\Controllers\Api\PermitController::class, 'cancel'])->middleware('auth:sanctum');
