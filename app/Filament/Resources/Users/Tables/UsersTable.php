@@ -10,6 +10,7 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class UsersTable
 {
@@ -71,6 +72,16 @@ class UsersTable
                     ->sortable()
                     ->placeholder('Belum diset')
                     ->icon('heroicon-o-clock'),
+                TextColumn::make('location')
+                    ->label('Lokasi')
+                    ->wrap()
+                    ->getStateUsing(function ($record) {
+                        // Ambil nama lokasi dari relasi pivot companyLocations (join: company_location_user -> company_locations)
+                        $names = $record->companyLocations?->pluck('name')->filter()->all() ?? [];
+                        return count($names) ? implode(', ', $names) : null;
+                    })
+                    ->placeholder('Belum diset')
+                    ->icon('heroicon-o-map-pin'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
