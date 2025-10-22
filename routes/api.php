@@ -42,6 +42,8 @@ Route::get('/me', [App\Http\Controllers\Api\AuthController::class, 'me'])->middl
 // company
 Route::get('/company', [App\Http\Controllers\Api\CompanyController::class, 'show'])->middleware('auth:sanctum');
 
+Route::get('/dropdown/company-locations', [App\Http\Controllers\Api\CompanyController::class, 'dropdownLocations']);
+
 // checkin
 Route::post('/checkin', [App\Http\Controllers\Api\AttendanceController::class, 'checkin'])->middleware('auth:sanctum');
 
