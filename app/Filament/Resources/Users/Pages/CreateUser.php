@@ -38,6 +38,17 @@ class CreateUser extends CreateRecord
                 'last_updated' => now(),
             ]);
         }
+
+        // Sinkronisasi pivot: departemen_user, jabatan_user, shift_kerja_user
+        if (! empty($user->departemen_id)) {
+            $user->departemens()->sync([$user->departemen_id]);
+        }
+        if (! empty($user->jabatan_id)) {
+            $user->jabatans()->sync([$user->jabatan_id]);
+        }
+        if (! empty($user->shift_kerja_id)) {
+            $user->shiftKerjas()->sync([$user->shift_kerja_id]);
+        }
     }
 
     public function getFormActions(): array

@@ -21,12 +21,12 @@ class AuthController extends Controller
         $user = User::where('email', $loginData['email'])->first();
 
         // check user exist
-        if (! $user) {
+        if (!$user) {
             return response(['message' => 'Invalid credentials'], 401);
         }
 
         // check password
-        if (! Hash::check($loginData['password'], $user->password)) {
+        if (!Hash::check($loginData['password'], $user->password)) {
             return response(['message' => 'Invalid credentials'], 401);
         }
 
@@ -49,6 +49,14 @@ class AuthController extends Controller
                 'name' => $user->shiftKerja->name,
                 'start_time' => $user->shiftKerja->start_time,
                 'end_time' => $user->shiftKerja->end_time,
+                // 'start_time' => $this->formatShiftTime(
+                //     $user->shiftKerja->getRawOriginal('start_time'),
+                //     $user->shiftKerja->start_time
+                // ),
+                // 'end_time' => $this->formatShiftTime(
+                //     $user->shiftKerja->getRawOriginal('end_time'),
+                //     $user->shiftKerja->end_time
+                // ),
             ] : null,
             'department' => $user->departemen ? [
                 'id' => $user->departemen->id,
@@ -128,6 +136,14 @@ class AuthController extends Controller
                 'name' => $user->shiftKerja->name,
                 'start_time' => $user->shiftKerja->start_time,
                 'end_time' => $user->shiftKerja->end_time,
+                // 'start_time' => $this->formatShiftTime(
+                //     $user->shiftKerja->getRawOriginal('start_time'),
+                //     $user->shiftKerja->start_time
+                // ),
+                // 'end_time' => $this->formatShiftTime(
+                //     $user->shiftKerja->getRawOriginal('end_time'),
+                //     $user->shiftKerja->end_time
+                // ),
             ] : null,
             'department' => $user->departemen ? [
                 'id' => $user->departemen->id,
@@ -136,5 +152,21 @@ class AuthController extends Controller
         ];
 
         return response($response, 200);
+    }
+
+    private function formatShiftTime($raw, $casted): ?string
+    {
+        // Prioritaskan nilai raw dari DB, yang bisa 'HH:MM:SS' atau 'HH:MM'
+        if (!empty($raw)) {
+            return strlen($raw) === 5 ? $raw : substr($raw, 0, 5);
+        }
+
+        // Jika hasil cast adalah Carbon, format pakai H:i
+        if ($casted instanceof \Carbon\Carbon) {
+            return $casted->format('H:i');
+        }
+
+        // Jika sudah string, kembalikan apa adanya
+        return $casted ?: null;
     }
 }

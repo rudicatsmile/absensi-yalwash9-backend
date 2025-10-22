@@ -3,12 +3,13 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Notifications\Notifiable;
+use Filament\Models\Contracts\FilamentUser;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -85,9 +86,19 @@ class User extends Authenticatable implements FilamentUser
         return $this->belongsTo(\App\Models\ShiftKerja::class, 'shift_kerja_id');
     }
 
-    public function companyLocation()
+    public function companyLocation(): BelongsTo
     {
         return $this->belongsTo(\App\Models\CompanyLocation::class, 'company_location_id');
+    }
+
+    public function companyLocations(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            CompanyLocation::class,
+            'company_location_user',
+            'user_id',
+            'company_location_id'
+        )->withTimestamps();
     }
 
     // Legacy many-to-many relationships (deprecated, for backward compatibility)

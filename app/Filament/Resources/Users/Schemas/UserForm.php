@@ -19,7 +19,7 @@ class UserForm
                     ->required()
                     ->maxLength(255),
                 TextInput::make('email')
-                    ->label('Email address')
+                    ->label('Email')
                     ->email()
                     ->required()
                     ->unique(ignoreRecord: true)
@@ -33,6 +33,7 @@ class UserForm
                     ->tel()
                     ->maxLength(20),
                 Select::make('role')
+                    ->label('Tipe user')
                     ->options([
                         'admin' => 'Admin',
                         'manager' => 'Manager',
@@ -48,7 +49,7 @@ class UserForm
                     ->preload()
                     ->helperText('Pilih 1 jabatan untuk karyawan'),
                 Select::make('departemen_id')
-                    ->label('Departemen')
+                    ->label('Unit Kerja')
                     ->relationship('departemen', 'name')
                     ->required()
                     ->searchable()
@@ -61,13 +62,16 @@ class UserForm
                     ->searchable()
                     ->preload()
                     ->helperText('Pilih 1 shift kerja untuk karyawan'),
-                Select::make('company_location_id')
-                    ->label('Company Location')
-                    ->relationship('companyLocation', 'name')
-                    ->required()
+                Select::make('company_locations')
+                    ->label('Lokasi')
+                    ->relationship('companyLocations', 'name') // sinkron ke pivot
+                    ->multiple()
                     ->searchable()
                     ->preload()
-                    ->helperText('Pilih lokasi perusahaan untuk karyawan')
+                    ->placeholder('Pilih satu atau lebih lokasi')
+                    ->helperText('Anda dapat memilih beberapa lokasi kerja.')
+                    ->rules(['required', 'array', 'min:1'])
+                    ->validationAttribute('Company Locations')
                     ->createOptionForm([
                         TextInput::make('name')
                             ->label('Nama Lokasi')
