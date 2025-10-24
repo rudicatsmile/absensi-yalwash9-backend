@@ -87,6 +87,8 @@ Route::post('/leaves/{id}/cancel', [App\Http\Controllers\Api\LeaveController::cl
 
 // permit
 Route::get('/permit-types', [App\Http\Controllers\Api\PermitController::class, 'getPermitTypes'])->middleware('auth:sanctum');
+Route::get('/permit-balance', [App\Http\Controllers\Api\LeaveController::class, 'getBalance'])->middleware('auth:sanctum');
+
 Route::get('/permits', [App\Http\Controllers\Api\PermitController::class, 'index'])->middleware('auth:sanctum');
 Route::get('/permits/{id}', [App\Http\Controllers\Api\PermitController::class, 'show'])->middleware('auth:sanctum');
 Route::post('/permits', [App\Http\Controllers\Api\PermitController::class, 'store'])->middleware('auth:sanctum');
