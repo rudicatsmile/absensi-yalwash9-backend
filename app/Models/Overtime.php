@@ -11,6 +11,7 @@ class Overtime extends Model
 
     protected $fillable = [
         'user_id',
+        'meeting_type_id',
         'date',
         'start_time',
         'end_time',
@@ -37,5 +38,10 @@ class Overtime extends Model
     public function approver()
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function meetingType()
+    {
+        return $this->belongsTo(MeetingType::class);
     }
 }

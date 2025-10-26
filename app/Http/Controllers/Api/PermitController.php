@@ -58,6 +58,7 @@ class PermitController extends Controller
     // Create permit request
     public function store(Request $request)
     {
+
         $validated = $request->validate([
             'permit_type_id' => 'required|exists:permit_types,id',
             'start_date' => 'required|date',
@@ -71,11 +72,14 @@ class PermitController extends Controller
         // Calculate total workdays excluding weekends and holidays
         $startDate = Carbon::parse($validated['start_date']);
         $endDate = Carbon::parse($validated['end_date']);
+
+
         $totalDays = WorkdayCalculator::countWorkdaysExcludingHolidays($startDate, $endDate);
 
         $validated['employee_id'] = $userId;
         $validated['total_days'] = $totalDays;
         $validated['status'] = 'pending';
+
 
         // Handle attachment upload if provided
         if ($request->hasFile('attachment')) {
@@ -84,6 +88,7 @@ class PermitController extends Controller
         }
 
         $permit = Permit::create($validated);
+        // dd($request->all());
 
         return response()->json([
             'message' => 'Permit request created successfully',

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Overtime;
+use App\Models\MeetingType;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,11 +18,12 @@ class OvertimeController extends Controller
         try {
             $user = Auth::user();
 
-            if (! $user) {
+            if (!$user) {
                 return response()->json(['message' => 'Pegawai tidak ditemukan.'], 401);
             }
 
             $validator = Validator::make($request->all(), [
+                'meeting_type_id' => 'nullable|exists:meeting_types,id',
                 'notes' => 'nullable|string|max:255',
                 'reason' => 'nullable|string|max:255',
                 'start_document_path' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
@@ -58,8 +60,10 @@ class OvertimeController extends Controller
 
             Overtime::create([
                 'user_id' => $user->id,
+                'meeting_type_id' => $request->meeting_type_id,
                 'date' => $date,
                 'start_time' => $startTime,
+                'end_time' => $startTime,       // default same as start_time
                 'reason' => $request->reason,
                 'status' => 'pending',
                 'document' => $documentPath,
@@ -77,7 +81,7 @@ class OvertimeController extends Controller
         try {
             $user = Auth::user();
 
-            if (! $user) {
+            if (!$user) {
                 return response()->json(['message' => 'Pegawai tidak ditemukan.'], 401);
             }
 
@@ -94,6 +98,15 @@ class OvertimeController extends Controller
                 }
             }
 
+            // Muat relasi agar 'meetingType' (id, name) tersedia dalam response
+            // $query->with(['meetingType:id,name']);
+
+            // Tambahkan kolom datar 'meeting_type_name' hasil subquery ke meeting_types.name
+            $query->addSelect([
+                'meeting_type_name' => MeetingType::select('name')
+                    ->whereColumn('overtimes.meeting_type_id', 'meeting_types.id')
+                    ->limit(1),
+            ]);
             $overtimes = $query->orderBy('date', 'desc')->get();
 
             return response()->json(['data' => $overtimes, 'message' => 'Daftar lembur'], 200);
@@ -107,7 +120,7 @@ class OvertimeController extends Controller
         try {
             $user = Auth::user();
 
-            if (! $user) {
+            if (!$user) {
                 return response()->json(['message' => 'Pegawai tidak ditemukan.'], 401);
             }
 
@@ -124,7 +137,7 @@ class OvertimeController extends Controller
                 ->where('user_id', $user->id)
                 ->first();
 
-            if (! $overtime) {
+            if (!$overtime) {
                 return response()->json(['message' => 'Data lembur tidak ditemukan.'], 404);
             }
 
@@ -152,7 +165,7 @@ class OvertimeController extends Controller
         try {
             $user = Auth::user();
 
-            if (! $user) {
+            if (!$user) {
                 return response()->json(['message' => 'Pegawai tidak ditemukan.'], 401);
             }
 
@@ -164,7 +177,7 @@ class OvertimeController extends Controller
                 ->latest()
                 ->first();
 
-            if (! $overtime) {
+            if (!$overtime) {
                 return response()->json([
                     'status' => 'not_started',
                     'message' => 'Belum ada lembur hari ini',
@@ -172,7 +185,7 @@ class OvertimeController extends Controller
                 ], 200);
             }
 
-            if ($overtime->start_time && ! $overtime->end_time) {
+            if ($overtime->start_time && !$overtime->end_time) {
                 return response()->json([
                     'status' => 'in_progress',
                     'message' => 'Lembur sedang berlangsung',
