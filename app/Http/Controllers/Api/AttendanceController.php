@@ -43,10 +43,10 @@ class AttendanceController extends Controller
             $startTimeString = $activeShift->getRawOriginal('start_time') ?? $activeShift->start_time?->format('H:i:s');
 
             if ($startTimeString) {
-                $normalizedStartTime = strlen($startTimeString) === 5 ? $startTimeString.':00' : $startTimeString;
+                $normalizedStartTime = strlen($startTimeString) === 5 ? $startTimeString . ':00' : $startTimeString;
                 $shiftStart = Carbon::createFromFormat(
                     'Y-m-d H:i:s',
-                    $currentDateTime->toDateString().' '.$normalizedStartTime,
+                    $currentDateTime->toDateString() . ' ' . $normalizedStartTime,
                     config('app.timezone')
                 );
 
@@ -66,10 +66,12 @@ class AttendanceController extends Controller
 
         $attendance = new Attendance;
         $attendance->user_id = $currentUser->id;
-        $attendance->shift_id = $activeShift?->id;
+        // $attendance->shift_id = $activeShift?->id;
+        $attendance->shift_id = $request->shift_kerja_id;
+        $attendance->company_location_id = $request->company_location_id;
         $attendance->date = $currentDateTime->toDateString();
         $attendance->time_in = $currentDateTime->toTimeString();
-        $attendance->latlon_in = $request->latitude.','.$request->longitude;
+        $attendance->latlon_in = $request->latitude . ',' . $request->longitude;
         $attendance->status = $status;
         $attendance->is_weekend = $isWeekend;
         $attendance->is_holiday = $isHoliday;
@@ -100,13 +102,13 @@ class AttendanceController extends Controller
             ->first();
 
         // check if attendance not found
-        if (! $attendance) {
+        if (!$attendance) {
             return response(['message' => 'Checkin first'], 400);
         }
 
         // save checkout
         $attendance->time_out = now()->toTimeString();
-        $attendance->latlon_out = $request->latitude.','.$request->longitude;
+        $attendance->latlon_out = $request->latitude . ',' . $request->longitude;
         $attendance->save();
 
         return response([
