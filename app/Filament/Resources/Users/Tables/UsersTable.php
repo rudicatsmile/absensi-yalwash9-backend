@@ -64,14 +64,29 @@ class UsersTable
                     ->sortable()
                     ->placeholder('Belum diset')
                     ->icon('heroicon-o-building-library'),
-                TextColumn::make('shiftKerja.name')
-                    ->label('Shift')
-                    ->badge()
+                // TextColumn::make('shiftKerja.name')
+                //     ->label('Shift')
+                //     ->badge()
+                //     ->color('warning')
+                //     ->searchable()
+                //     ->sortable()
+                //     ->placeholder('Belum diset')
+                //     ->icon('heroicon-o-clock'),
+
+
+                TextColumn::make('shift')
+                    ->label('Shift Kerja')
+                    ->wrap()
                     ->color('warning')
-                    ->searchable()
-                    ->sortable()
+                    ->getStateUsing(function ($record) {
+                        // Ambil nama shift kerja dari relasi pivot shiftKerjas (join: shift_kerja_user -> shift_kerjas)
+                        $names = $record->shiftKerjas?->pluck('name')->filter()->all() ?? [];
+                        return count($names) ? implode(', ', $names) : null;
+                    })
                     ->placeholder('Belum diset')
                     ->icon('heroicon-o-clock'),
+
+
                 TextColumn::make('location')
                     ->label('Lokasi')
                     ->wrap()

@@ -26,8 +26,20 @@ class ShiftKerja extends Model
         'is_active' => 'boolean',
     ];
 
-    public function users()
+    // public function users()
+    // {
+    //     return $this->belongsToMany(User::class, 'shift_kerja_user');
+    // }
+
+
+
+    public function users(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'shift_kerja_user');
+        return $this->belongsToMany(
+            User::class,
+            'shift_kerja_user',
+            'shift_kerja_id',
+            'user_id'
+        )->withTimestamps();
     }
 }

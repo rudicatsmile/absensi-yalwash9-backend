@@ -55,13 +55,37 @@ class UserForm
                     ->searchable()
                     ->preload()
                     ->helperText('Pilih 1 departemen untuk karyawan'),
-                Select::make('shift_kerja_id')
+                // Select::make('shift_kerja_id')
+                //     ->label('Shift Kerja')
+                //     ->relationship('shiftKerja', 'name')
+                //     ->required()
+                //     ->searchable()
+                //     ->preload()
+                //     ->helperText('Pilih 1 shift kerja untuk karyawan'),
+
+                Select::make('shift_kerjas')
                     ->label('Shift Kerja')
-                    ->relationship('shiftKerja', 'name')
-                    ->required()
+                    ->relationship('shiftKerjas', 'name') // sinkron ke pivot
+                    ->multiple()
                     ->searchable()
                     ->preload()
-                    ->helperText('Pilih 1 shift kerja untuk karyawan'),
+                    ->placeholder('Pilih satu atau lebih shift kerja')
+                    ->helperText('Anda dapat memilih beberapa shift kerja.')
+                    ->rules(['required', 'array', 'min:1'])
+                    ->validationAttribute('Shift Kerja')
+                    ->createOptionForm([
+                        TextInput::make('name')
+                            ->label('Nama Shift Kerja')
+                            ->required()
+                            ->maxLength(255),
+                    ])
+                    ->editOptionForm([
+                        TextInput::make('name')
+                            ->label('Nama Shift Kerja')
+                            ->required()
+                            ->maxLength(255),
+                    ]),
+
                 Select::make('company_locations')
                     ->label('Lokasi')
                     ->relationship('companyLocations', 'name') // sinkron ke pivot

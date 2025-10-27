@@ -86,6 +86,17 @@ class User extends Authenticatable implements FilamentUser
         return $this->belongsTo(\App\Models\ShiftKerja::class, 'shift_kerja_id');
     }
 
+    public function shiftKerjas(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        // return $this->belongsToMany(\App\Models\ShiftKerja::class, 'shift_kerja_user');
+        return $this->belongsToMany(
+            ShiftKerja::class,
+            'shift_kerja_user',
+            'user_id',
+            'shift_kerja_id'
+        )->withTimestamps();
+    }
+
     public function companyLocation(): BelongsTo
     {
         return $this->belongsTo(\App\Models\CompanyLocation::class, 'company_location_id');
@@ -112,10 +123,6 @@ class User extends Authenticatable implements FilamentUser
         return $this->belongsToMany(\App\Models\Departemen::class, 'departemen_user');
     }
 
-    public function shiftKerjas()
-    {
-        return $this->belongsToMany(\App\Models\ShiftKerja::class, 'shift_kerja_user');
-    }
 
     public function overtimes()
     {
