@@ -24,16 +24,70 @@ class PermitController extends Controller
     }
 
     // Get all permits for current user
-    public function index(Request $request)
+    public function index_old(Request $request)
     {
         $userId = $request->user()->id;
         $status = $request->query('status');
+        $shift_kerja_id = $request->query('shift_kerja_id');
 
         $query = Permit::where('employee_id', $userId)
             ->with(['permitType', 'approver']);
 
         if ($status) {
             $query->where('status', $status);
+        }
+
+        $permits = $query->orderBy('created_at', 'desc')->get();
+
+        return response()->json([
+            'message' => 'Permits retrieved successfully',
+            'status' => $status,
+            'data' => $permits,
+        ], 200);
+    }
+
+    public function index(Request $request)
+    {
+        $userId = $request->user()->id;
+        $status = $request->query('status');
+        $shift_kerja_id = $request->query('shift_kerja_id');
+
+        $query = Permit::where('employee_id', $userId)
+            ->with(['permitType', 'approver']);
+
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        // Tambahkan filter jika shift_kerja_id tidak kosong
+        if ($shift_kerja_id !== null && $shift_kerja_id !== '') {
+
+            if (!is_numeric($shift_kerja_id)) {
+                return response()->json([
+                    'error' => 'Parameter shift_kerja_id harus berupa angka.',
+                ], 422);
+            }
+
+            // $query->where('shift_id', $shift_kerja_id);
+
+            $shiftIdInt = (int) $shift_kerja_id;
+
+            //$shiftId = 5  : Absen Pengajian malam jumat
+            //$shiftId != 5 : Absen Lainnya
+
+            if ($shiftIdInt === 5) {
+                $query->where('shift_id', 5);
+            } else {
+                $query->where('shift_id', '<>', 5);
+            }
+
+            /*
+            $query->whereHas('employee', function ($q) use ($shift_kerja_id) {
+                $q->whereHas('shiftKerjas', function ($qq) use ($shift_kerja_id) {
+                    $qq->where('shift_kerjas.id', (int) $shift_kerja_id);
+                });
+            });
+            */
         }
 
         $permits = $query->orderBy('created_at', 'desc')->get();
@@ -58,7 +112,6 @@ class PermitController extends Controller
     // Create permit request
     public function store(Request $request)
     {
-
         $validated = $request->validate([
             'permit_type_id' => 'required|exists:permit_types,id',
             'start_date' => 'required|date',
@@ -72,13 +125,26 @@ class PermitController extends Controller
         // Calculate total workdays excluding weekends and holidays
         $startDate = Carbon::parse($validated['start_date']);
         $endDate = Carbon::parse($validated['end_date']);
-
-
         $totalDays = WorkdayCalculator::countWorkdaysExcludingHolidays($startDate, $endDate);
 
         $validated['employee_id'] = $userId;
         $validated['total_days'] = $totalDays;
         $validated['status'] = 'pending';
+        $validated['shift_id'] = $request->input('shift_kerja_id');
+
+        $shiftIdInt = (int) $request->input('shift_kerja_id');
+
+        //$shiftId = 5  : Absen Pengajian malam jumat
+        //$shiftId != 5 : Absen Lainnya
+
+        if ($shiftIdInt === 5) {
+            $validated['status'] = 'approved';
+            $validated['approved_by'] = 11;
+            $validated['approved_at'] = now();
+        } else {
+
+        }
+
 
 
         // Handle attachment upload if provided
@@ -88,7 +154,6 @@ class PermitController extends Controller
         }
 
         $permit = Permit::create($validated);
-        // dd($request->all());
 
         return response()->json([
             'message' => 'Permit request created successfully',

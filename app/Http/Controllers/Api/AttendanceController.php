@@ -30,7 +30,8 @@ class AttendanceController extends Controller
             ->scheduled()
             ->value('shift_id');
 
-        $resolvedShiftId = $scheduledShiftId ?? $currentUser->shift_kerja_id;
+        //$resolvedShiftId = $scheduledShiftId ?? $currentUser->shift_kerja_id;
+        $resolvedShiftId = $scheduledShiftId ?? $request->shift_kerja_id;
         $activeShift = $resolvedShiftId ? ShiftKerja::query()->find($resolvedShiftId) : null;
 
         $isWeekend = WorkdayCalculator::isWeekend($currentDateTime->copy());
@@ -39,11 +40,16 @@ class AttendanceController extends Controller
         $status = 'on_time';
         $lateMinutes = 0;
 
+
+
         if ($activeShift) {
             $startTimeString = $activeShift->getRawOriginal('start_time') ?? $activeShift->start_time?->format('H:i:s');
 
+
             if ($startTimeString) {
                 $normalizedStartTime = strlen($startTimeString) === 5 ? $startTimeString . ':00' : $startTimeString;
+
+
                 $shiftStart = Carbon::createFromFormat(
                     'Y-m-d H:i:s',
                     $currentDateTime->toDateString() . ' ' . $normalizedStartTime,
@@ -61,23 +67,32 @@ class AttendanceController extends Controller
                     $status = 'late';
                     $lateMinutes = (int) $lateThreshold->diffInMinutes($currentDateTime);
                 }
+
+                //echo '0 : ' . $normalizedStartTime . ' : 1 : ' . $shiftStart . ' : 2 : ' .
+                //    $lateThreshold . ' : 3 : ' . $currentDateTime . ' : 4 : ' . $graceMinutes . ' : 5 : ' . $lateMinutes . ' : 6 : ' . $status;
+
+                //normalizedStartTime :    14:00:00 ::    2025-10-29 14:00:00 ::
+                //   2025-10-29 14:10:00 ::   2025-10-29 14:38:37 :: 10 :: 29 :: late :: late
             }
         }
 
+
         $attendance = new Attendance;
         $attendance->user_id = $currentUser->id;
-        // $attendance->shift_id = $activeShift?->id;
+        //$attendance->shift_id = $activeShift?->id;
         $attendance->shift_id = $request->shift_kerja_id;
         $attendance->company_location_id = $request->company_location_id;
         $attendance->date = $currentDateTime->toDateString();
         $attendance->time_in = $currentDateTime->toTimeString();
         $attendance->latlon_in = $request->latitude . ',' . $request->longitude;
+
         $attendance->status = $status;
         $attendance->is_weekend = $isWeekend;
         $attendance->is_holiday = $isHoliday;
         $attendance->holiday_work = $activeShift ? ($isWeekend || $isHoliday) : false;
         $attendance->late_minutes = $lateMinutes;
         $attendance->save();
+
 
         return response([
             'message' => 'Checkin success',
@@ -117,11 +132,30 @@ class AttendanceController extends Controller
         ], 200);
     }
 
-    // check is checkedin
-    public function isCheckedin(Request $request)
+    public function isCheckedin_old(Request $request)
     {
         // get today attendance
         $attendance = Attendance::where('user_id', $request->user()->id)
+            ->whereDate('date', now())
+            ->first();
+
+        $isCheckout = $attendance ? $attendance->time_out : false;
+
+        return response([
+            'checkedin' => $attendance ? true : false,
+            'checkedout' => $isCheckout ? true : false,
+        ], 200);
+    }
+    // check is checkedin
+    public function isCheckedin(Request $request)
+    {
+        $shiftKerjaId = $request->input('shiftKerjaId', $request->input('shift_kerja_id'));
+
+        // get today attendance
+        $attendance = Attendance::where('user_id', $request->user()->id)
+            ->when($shiftKerjaId !== null && $shiftKerjaId !== '', function ($query) use ($shiftKerjaId) {
+                $query->where('shift_id', (int) $shiftKerjaId);
+            })
             ->whereDate('date', now())
             ->first();
 

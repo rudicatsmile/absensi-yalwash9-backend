@@ -86,9 +86,9 @@ class CompanyForm
                                             ->label('Radius (km)')
                                             ->required()
                                             ->numeric()
-                                            ->default(0.5)
-                                            ->step(0.1)
-                                            ->minValue(0.1)
+                                            ->default(0.05)
+                                            ->step(0.01)
+                                            ->minValue(0.01)
                                             ->maxValue(10)
                                             ->helperText('Radius check-in yang diizinkan'),
                                     ]),
