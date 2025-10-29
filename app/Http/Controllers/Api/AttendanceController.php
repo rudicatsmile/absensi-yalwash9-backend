@@ -41,7 +41,6 @@ class AttendanceController extends Controller
         $lateMinutes = 0;
 
 
-
         if ($activeShift) {
             $startTimeString = $activeShift->getRawOriginal('start_time') ?? $activeShift->start_time?->format('H:i:s');
 
@@ -60,22 +59,20 @@ class AttendanceController extends Controller
                     $shiftStart->subDay();
                 }
 
+
                 $graceMinutes = (int) ($activeShift->grace_period_minutes ?? 0);
                 $lateThreshold = $shiftStart->copy()->addMinutes($graceMinutes);
+
+                //echo 'normalizedStartTime : '. $normalizedStartTime .'\n';
+
+                //echo $shiftStart.' ===> '.$currentDateTime. '>>>--> '.$lateThreshold;exit;
 
                 if ($currentDateTime->greaterThan($lateThreshold)) {
                     $status = 'late';
                     $lateMinutes = (int) $lateThreshold->diffInMinutes($currentDateTime);
                 }
-
-                //echo '0 : ' . $normalizedStartTime . ' : 1 : ' . $shiftStart . ' : 2 : ' .
-                //    $lateThreshold . ' : 3 : ' . $currentDateTime . ' : 4 : ' . $graceMinutes . ' : 5 : ' . $lateMinutes . ' : 6 : ' . $status;
-
-                //normalizedStartTime :    14:00:00 ::    2025-10-29 14:00:00 ::
-                //   2025-10-29 14:10:00 ::   2025-10-29 14:38:37 :: 10 :: 29 :: late :: late
             }
         }
-
 
         $attendance = new Attendance;
         $attendance->user_id = $currentUser->id;
@@ -85,14 +82,12 @@ class AttendanceController extends Controller
         $attendance->date = $currentDateTime->toDateString();
         $attendance->time_in = $currentDateTime->toTimeString();
         $attendance->latlon_in = $request->latitude . ',' . $request->longitude;
-
         $attendance->status = $status;
         $attendance->is_weekend = $isWeekend;
         $attendance->is_holiday = $isHoliday;
         $attendance->holiday_work = $activeShift ? ($isWeekend || $isHoliday) : false;
         $attendance->late_minutes = $lateMinutes;
         $attendance->save();
-
 
         return response([
             'message' => 'Checkin success',
@@ -101,7 +96,7 @@ class AttendanceController extends Controller
     }
 
     // checkout
-    public function checkout(Request $request)
+    public function checkout_old(Request $request)
     {
         // validate lat and long
         $request->validate([
@@ -132,6 +127,42 @@ class AttendanceController extends Controller
         ], 200);
     }
 
+    public function checkout(Request $request)
+    {
+        // validate lat and long
+
+        $request->validate([
+            'latitude' => 'required',
+            'longitude' => 'required',
+            'shift_kerja_id' => 'required|integer',
+        ]);
+
+        // get today attendance
+        $today = now();
+        $shiftKerjaId = (int) $request->input('shift_kerja_id');
+
+        $attendance = Attendance::where('user_id', $request->user()->id)
+            ->whereDate('date', $today)
+            ->where('shift_id', $shiftKerjaId)
+            ->first();
+
+        // check if attendance not found
+        if (!$attendance) {
+            return response(['message' => 'Checkin first'], 400);
+        }
+
+        // save checkout
+        $attendance->time_out = now()->toTimeString();
+        $attendance->latlon_out = $request->latitude . ',' . $request->longitude;
+        $attendance->save();
+
+        return response([
+            'message' => 'Checkout success',
+            'attendance' => $attendance,
+        ], 200);
+    }
+
+    // check is checkedin
     public function isCheckedin_old(Request $request)
     {
         // get today attendance
@@ -146,16 +177,36 @@ class AttendanceController extends Controller
             'checkedout' => $isCheckout ? true : false,
         ], 200);
     }
-    // check is checkedin
+
+    public function isCheckedin_ok_as_backup_without_shiftId_5(Request $request)
+    {
+        $shiftKerjaId = $request->input('shiftKerjaId', $request->input('shift_kerja_id'));
+
+        // get today attendance
+        $attendance = Attendance::where('user_id', $request->user()->id)
+            ->when($shiftKerjaId !== null && $shiftKerjaId !== '', function ($query) use ($shiftKerjaId) {
+                $query->where('shift_id', (int) $shiftKerjaId);
+            })
+            ->whereDate('date', now())
+            ->first();
+
+        $isCheckout = $attendance ? $attendance->time_out : false;
+
+        return response([
+            'checkedin' => $attendance ? true : false,
+            'checkedout' => $isCheckout ? true : false,
+        ], 200);
+    }
+
     public function isCheckedin(Request $request)
     {
         $shiftKerjaId = $request->input('shiftKerjaId', $request->input('shift_kerja_id'));
-    
+
         // get today attendance
         $attendance = Attendance::where('user_id', $request->user()->id)
             ->when($shiftKerjaId !== null && $shiftKerjaId !== '', function ($query) use ($shiftKerjaId) {
                 $shiftIdInt = (int) $shiftKerjaId;
-    
+
                 if ($shiftIdInt === 5) {
                     $query->where('shift_id', 5);
                 } else {
@@ -164,9 +215,9 @@ class AttendanceController extends Controller
             })
             ->whereDate('date', now())
             ->first();
-    
+
         $isCheckout = $attendance ? $attendance->time_out : false;
-    
+
         return response([
             'checkedin' => $attendance ? true : false,
             'checkedout' => $isCheckout ? true : false,
@@ -180,8 +231,10 @@ class AttendanceController extends Controller
 
         $currentUser = $request->user();
 
-        $query = Attendance::where('user_id', $currentUser->id);
+        //echo '---'.$currentUser;exit;
 
+        $query = Attendance::where('user_id', $currentUser->id);
+        //echo $query->toSql();exit;
         if ($date) {
             $query->where('date', $date);
         }
