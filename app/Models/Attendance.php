@@ -28,7 +28,7 @@ class Attendance extends Model
     protected function casts(): array
     {
         return [
-            'date' => 'date',
+            // 'date' => 'date',
             'time_in' => 'datetime:H:i:s',
             'time_out' => 'datetime:H:i:s',
             'is_weekend' => 'boolean',

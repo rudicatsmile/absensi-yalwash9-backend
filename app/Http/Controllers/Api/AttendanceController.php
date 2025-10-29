@@ -150,17 +150,23 @@ class AttendanceController extends Controller
     public function isCheckedin(Request $request)
     {
         $shiftKerjaId = $request->input('shiftKerjaId', $request->input('shift_kerja_id'));
-
+    
         // get today attendance
         $attendance = Attendance::where('user_id', $request->user()->id)
             ->when($shiftKerjaId !== null && $shiftKerjaId !== '', function ($query) use ($shiftKerjaId) {
-                $query->where('shift_id', (int) $shiftKerjaId);
+                $shiftIdInt = (int) $shiftKerjaId;
+    
+                if ($shiftIdInt === 5) {
+                    $query->where('shift_id', 5);
+                } else {
+                    $query->where('shift_id', '<>', 5);
+                }
             })
             ->whereDate('date', now())
             ->first();
-
+    
         $isCheckout = $attendance ? $attendance->time_out : false;
-
+    
         return response([
             'checkedin' => $attendance ? true : false,
             'checkedout' => $isCheckout ? true : false,
