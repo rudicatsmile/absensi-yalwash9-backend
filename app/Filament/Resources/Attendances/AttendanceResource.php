@@ -19,7 +19,7 @@ class AttendanceResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clock';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Dashboard Absensi';
+    protected static UnitEnum|string|null $navigationGroup = 'Data';
 
     protected static ?string $navigationLabel = 'Absensi';
 

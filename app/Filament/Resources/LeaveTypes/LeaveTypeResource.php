@@ -20,7 +20,7 @@ class LeaveTypeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-tag';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Management Cuti';
+    protected static UnitEnum|string|null $navigationGroup = 'Master Data';
 
     protected static ?string $navigationLabel = 'Jenis Cuti';
 

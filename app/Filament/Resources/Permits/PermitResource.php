@@ -21,7 +21,7 @@ class PermitResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Management Izin';
+    protected static UnitEnum|string|null $navigationGroup = 'Data';
 
     protected static ?string $navigationLabel = 'Izin Kerja';
 

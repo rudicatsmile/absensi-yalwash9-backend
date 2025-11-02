@@ -62,6 +62,10 @@ class AuthController extends Controller
                 'id' => $user->departemen->id,
                 'name' => $user->departemen->name,
             ] : null,
+            'jabatan' => $user->jabatan ? [
+                'id' => $user->jabatan->id,
+                'name' => $user->jabatan->name,
+            ] : null,
         ];
 
         return response($response, 200);

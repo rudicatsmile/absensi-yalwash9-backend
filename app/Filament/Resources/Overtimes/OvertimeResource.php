@@ -19,15 +19,15 @@ class OvertimeResource extends Resource
 {
     protected static ?string $model = Overtime::class;
 
-    protected static ?string $navigationLabel = 'Manajemen Lembur';
+    protected static ?string $navigationLabel = 'Over Shift';
 
-    protected static ?string $modelLabel = 'Lembur';
+    protected static ?string $modelLabel = 'Over Shift';
 
-    protected static ?string $pluralModelLabel = 'Lembur';
+    protected static ?string $pluralModelLabel = 'Over Shifts';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clock';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Dashboard Absensi';
+    protected static UnitEnum|string|null $navigationGroup = 'Data';
 
     protected static ?int $navigationSort = 33;
 

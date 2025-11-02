@@ -17,6 +17,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Filament\Navigation\NavigationGroup; // tambah import ini
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -48,6 +49,13 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Widgets\LatestAttendanceWidget::class,
                 \App\Filament\Widgets\PendingApprovalsWidget::class,
                 \App\Filament\Widgets\PendingOvertimeWidget::class,
+            ])
+            ->navigationGroups([
+                NavigationGroup::make('Master Data'),
+                NavigationGroup::make('Data'),
+                NavigationGroup::make('Settings'),
+                NavigationGroup::make('Management Rapat'),
+                NavigationGroup::make('Laporan'),
             ])
             ->middleware([
                 EncryptCookies::class,

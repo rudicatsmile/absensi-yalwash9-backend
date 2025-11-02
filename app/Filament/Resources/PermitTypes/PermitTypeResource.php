@@ -20,7 +20,7 @@ class PermitTypeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Management Izin';
+    protected static UnitEnum|string|null $navigationGroup = 'Master Data';
 
     protected static ?string $navigationLabel = 'Jenis Izin Kerja';
 

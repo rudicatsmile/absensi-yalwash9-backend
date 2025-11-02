@@ -21,7 +21,7 @@ class LeaveResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Management Cuti';
+    protected static UnitEnum|string|null $navigationGroup = 'Data';
 
     protected static ?string $navigationLabel = 'Cuti';
 
