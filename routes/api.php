@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\DropdownController;
+use App\Http\Controllers\Api\ReportController;
 
 Route::get('/user', function (Request $request) {
     $user = $request->user();
@@ -151,3 +152,4 @@ Route::delete('/meetings/{id}', [App\Http\Controllers\Api\MeetingController::cla
  */
 Route::get('/meeting-types', [App\Http\Controllers\Api\MeetingTypeController::class, 'getMeetingTypes'])->middleware('auth:sanctum');
 Route::get('/dropdown/shift_kerjas', [DropdownController::class, 'shiftKerjas']);
+Route::get('/reports/attendance', [ReportController::class, 'attendanceReport']);
