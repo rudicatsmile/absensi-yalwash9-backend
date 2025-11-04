@@ -49,7 +49,7 @@ class AttendanceReport extends Page
                 ->displayFormat('Y-m-d')
                 ->default($this->start_date)
                 ->live()
-                ->afterStateUpdated(fn ($state) => $this->start_date = $state),
+                ->afterStateUpdated(fn($state) => $this->start_date = $state),
 
             DatePicker::make('end_date')
                 ->label('Tanggal Akhir')
@@ -58,17 +58,17 @@ class AttendanceReport extends Page
                 ->displayFormat('Y-m-d')
                 ->default($this->end_date)
                 ->live()
-                ->afterStateUpdated(fn ($state) => $this->end_date = $state),
+                ->afterStateUpdated(fn($state) => $this->end_date = $state),
 
             Select::make('shift_id')
                 ->label('Shift')
                 ->placeholder('Semua Shift')
-                ->options(fn () => ShiftKerja::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                ->options(fn() => ShiftKerja::query()->orderBy('name')->pluck('name', 'id')->toArray())
                 ->searchable()
                 ->native(false)
                 ->default($this->shift_id)
                 ->live()
-                ->afterStateUpdated(fn ($state) => $this->shift_id = $state),
+                ->afterStateUpdated(fn($state) => $this->shift_id = $state),
         ]);
     }
 
@@ -79,14 +79,14 @@ class AttendanceReport extends Page
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('primary')
                 ->requiresConfirmation(false)
-                ->url(fn () => $this->buildExportUrl('csv'))
+                ->url(fn() => $this->buildExportUrl('csv'))
                 ->openUrlInNewTab(),
 
             Action::make('Export Excel')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->requiresConfirmation(false)
-                ->url(fn () => $this->buildExportUrl('xlsx'))
+                ->url(fn() => $this->buildExportUrl('xlsx'))
                 ->openUrlInNewTab(),
         ];
     }
@@ -108,7 +108,7 @@ class AttendanceReport extends Page
             'export' => ['required', 'in:csv,xlsx'],
         ])->validate();
 
-        $query = http_build_query(array_filter($data, fn ($v) => $v !== null && $v !== ''));
+        $query = http_build_query(array_filter($data, fn($v) => $v !== null && $v !== ''));
 
         return url('/api/reports/attendance') . '?' . $query;
     }
@@ -131,7 +131,7 @@ class AttendanceReport extends Page
 
         return Attendance::query()
             ->whereBetween('date', [$start, $end])
-            ->when($this->shift_id, fn (Builder $q) => $q->where('shift_id', $this->shift_id));
+            ->when($this->shift_id, fn(Builder $q) => $q->where('shift_id', $this->shift_id));
     }
 
     protected function summarize(Collection $attendances): array

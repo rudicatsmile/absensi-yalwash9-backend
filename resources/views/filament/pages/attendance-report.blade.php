@@ -164,56 +164,131 @@
                     @endforeach
                 </div> --}}
 
-                {{-- Desktop Table Layout --}}
+                {{-- Desktop Table Layout (Dinamis) --}}
+                {{--
+                    Dokumentasi Tampilan Dinamis
+                    Parameter didukung (query atau variabel view):
+                    - report_mode: 'detail' | 'matrix' (default 'detail')
+                    - api_rows: array dari ReportController::attendanceReport (opsional untuk mode 'matrix')
+                    Fallback: jika mode 'matrix' dipilih namun data tidak valid/tidak tersedia, otomatis kembali ke mode 'detail'.
+                    Batasan: mode 'matrix' memerlukan kolom tanggal (DD-MM-YYYY) + kolom 'No', 'Nama_Pegawai', 'Total_kehadiran', 'Total_tidak_hadir', 'Total_jam_kerja'.
+                    Contoh: /admin/attendance-report?report_mode=matrix
+                --}}
                 <div class="hidden md:block">
-                    <div class="table-container overflow-x-auto" role="region" aria-label="Tabel laporan kehadiran" tabindex="0">
-                        <table class="attendance-table min-w-full border border-slate-200 rounded-md" role="table">
-                            <thead class="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
-                                <tr role="row">
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">No</th>
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Nama</th>
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Shift</th>
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Tanggal</th>
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Jam Masuk</th>
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Jam Keluar</th>
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Status</th>
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Telat (mnt)</th>
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Pulang Cepat (mnt)</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white">
-                                @foreach ($attendances as $i => $a)
-                                    <tr class="hover:bg-slate-50 transition-colors duration-150" role="row">
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 border-b border-r last:border-r-0 border-slate-200">{{ $i + 1 }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 border-b border-r last:border-r-0 border-slate-200">{{ $a->user->name ?? '—' }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 border-b border-r last:border-r-0 border-slate-200">{{ $a->shift->name ?? '—' }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono border-b border-r last:border-r-0 border-slate-200">{{ \Carbon\Carbon::parse($a->date)->format('d/m/Y') }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono border-b border-r last:border-r-0 border-slate-200">{{ $a->time_in ? \Carbon\Carbon::parse($a->time_in)->format('H:i') : '—' }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono border-b border-r last:border-r-0 border-slate-200">{{ $a->time_out ? \Carbon\Carbon::parse($a->time_out)->format('H:i') : '—' }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-r last:border-r-0 border-slate-200">
-                                            @php
-                                                $status = 'Hadir';
-                                                $statusClass = 'bg-green-100 text-green-800';
-                                                if (!$a->time_in) {
-                                                    $status = 'Tidak Masuk';
-                                                    $statusClass = 'bg-red-100 text-red-800';
-                                                } elseif (!$a->time_out) {
-                                                    $status = 'Belum Pulang';
-                                                    $statusClass = 'bg-amber-100 text-amber-800';
-                                                }
-                                            @endphp
-                                            <span class="status-badge inline-flex px-3 py-1 rounded-full text-xs font-medium {{ $statusClass }}"
-                                                  aria-label="Status kehadiran: {{ $status }}">
-                                                {{ $status }}
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono border-b border-r last:border-r-0 border-slate-200">{{ $a->late_minutes ?? 0 }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono border-b border-r last:border-r-0 border-slate-200">{{ $a->early_leave_minutes ?? 0 }}</td>
+                    @php
+                        $reportMode = $report_mode ?? request()->query('report_mode', 'detail');
+                        $apiRows = $api_rows ?? (isset($rows) ? $rows : null);
+                        $isMatrix = $reportMode === 'matrix' && is_array($apiRows) && !empty($apiRows);
+                        $dateColumns = [];
+
+                        if ($isMatrix) {
+                            $first = (array) $apiRows[0];
+                            foreach (array_keys($first) as $key) {
+                                if (preg_match('/^\d{2}-\d{2}-\d{4}$/', (string) $key)) {
+                                    $dateColumns[] = $key;
+                                }
+                            }
+                            sort($dateColumns);
+                            $hasSummary = isset($first['Total_kehadiran'], $first['Total_tidak_hadir'], $first['Total_jam_kerja']);
+                            $hasIdentity = isset($first['No']) && (isset($first['Nama_Pegawai']) || isset($first['Nama']));
+                            if (!$hasIdentity || empty($dateColumns) || !$hasSummary) {
+                                $isMatrix = false; // fallback ke detail
+                            }
+                        }
+                    @endphp
+
+                    @if($isMatrix)
+                        <div class="table-container overflow-x-auto" role="region" aria-label="Tabel laporan kehadiran (matrix)" tabindex="0">
+                            <table class="attendance-table min-w-full border border-slate-200 rounded-md" role="table">
+                                <thead class="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
+                                    <tr role="row">
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">No</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Nama</th>
+                                        @foreach($dateColumns as $col)
+                                            <th scope="col" class="px-3 py-2 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">{{ $col }}</th>
+                                        @endforeach
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Total Hadir</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Total Tidak Hadir</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Total Jam Kerja</th>
                                     </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody class="bg-white">
+                                    @foreach($apiRows as $row)
+                                        @php $row = (array) $row; @endphp
+                                        <tr class="hover:bg-slate-50 transition-colors duration-150" role="row">
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600 border-b border-r last:border-r-0 border-slate-200">{{ $row['No'] ?? '-' }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900 border-b border-r last:border-r-0 border-slate-200">{{ $row['Nama_Pegawai'] ?? $row['Nama'] ?? '—' }}</td>
+                                            @foreach($dateColumns as $col)
+                                                @php
+                                                    $val = $row[$col] ?? '-';
+                                                    $badge = 'bg-slate-100 text-slate-700';
+                                                    if ($val === 'O') $badge = 'bg-green-100 text-green-800';
+                                                    elseif ($val === 'L') $badge = 'bg-yellow-100 text-yellow-800';
+                                                    elseif ($val === 'A') $badge = 'bg-red-100 text-red-800';
+                                                    elseif ($val === 'X') $badge = 'bg-blue-100 text-blue-800';
+                                                @endphp
+                                                <td class="px-3 py-2 text-center text-xs border-b border-r last:border-r-0 border-slate-200">
+                                                    <span class="status-badge inline-flex px-2 py-0.5 rounded-full font-medium {{ $badge }}" aria-label="Status: {{ $val }}">{{ $val }}</span>
+                                                </td>
+                                            @endforeach
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600 border-b border-r last:border-r-0 border-slate-200">{{ $row['Total_kehadiran'] ?? 0 }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600 border-b border-r last:border-r-0 border-slate-200">{{ $row['Total_tidak_hadir'] ?? 0 }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-600 border-b border-r last:border-r-0 border-slate-200">{{ $row['Total_jam_kerja'] ?? 0 }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <div class="table-container overflow-x-auto" role="region" aria-label="Tabel laporan kehadiran" tabindex="0">
+                            <table class="attendance-table min-w-full border border-slate-200 rounded-md" role="table">
+                                <thead class="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
+                                    <tr role="row">
+                                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">No</th>
+                                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Nama</th>
+                                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Shift</th>
+                                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Tanggal</th>
+                                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Jam Masuk</th>
+                                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Jam Keluar</th>
+                                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Status</th>
+                                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Telat (mnt)</th>
+                                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r last:border-r-0 border-slate-200">Pulang Cepat (mnt)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white">
+                                    @foreach ($attendances as $i => $a)
+                                        <tr class="hover:bg-slate-50 transition-colors duration-150" role="row">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 border-b border-r last:border-r-0 border-slate-200">{{ $i + 1 }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 border-b border-r last:border-r-0 border-slate-200">{{ $a->user->name ?? '—' }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 border-b border-r last:border-r-0 border-slate-200">{{ $a->shift->name ?? '—' }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono border-b border-r last:border-r-0 border-slate-200">{{ \Carbon\Carbon::parse($a->date)->format('d/m/Y') }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono border-b border-r last:border-r-0 border-slate-200">{{ $a->time_in ? \Carbon\Carbon::parse($a->time_in)->format('H:i') : '—' }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono border-b border-r last:border-r-0 border-slate-200">{{ $a->time_out ? \Carbon\Carbon::parse($a->time_out)->format('H:i') : '—' }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-r last:border-r-0 border-slate-200">
+                                                @php
+                                                    $status = 'Hadir';
+                                                    $statusClass = 'bg-green-100 text-green-800';
+                                                    if (!$a->time_in) {
+                                                        $status = 'Tidak Masuk';
+                                                        $statusClass = 'bg-red-100 text-red-800';
+                                                    } elseif (!$a->time_out) {
+                                                        $status = 'Belum Pulang';
+                                                        $statusClass = 'bg-amber-100 text-amber-800';
+                                                    }
+                                                @endphp
+                                                <span class="status-badge inline-flex px-3 py-1 rounded-full text-xs font-medium {{ $statusClass }}"
+                                                      aria-label="Status kehadiran: {{ $status }}">
+                                                    {{ $status }}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono border-b border-r last:border-r-0 border-slate-200">{{ $a->late_minutes ?? 0 }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono border-b border-r last:border-r-0 border-slate-200">{{ $a->early_leave_minutes ?? 0 }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </div>
             @else
                 <div class="p-8 text-center" role="status" aria-live="polite">
