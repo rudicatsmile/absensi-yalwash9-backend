@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\ShiftKerja;
 use App\Models\Attendance;
+use App\Models\Departemen;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -30,6 +31,7 @@ class AttendanceReport extends Page
     public ?string $start_date = null;
     public ?string $end_date = null;
     public ?int $shift_id = null;
+    public ?int $departemen_id = null;
 
     protected string $view = 'filament.pages.attendance-report';
 
@@ -37,6 +39,8 @@ class AttendanceReport extends Page
     {
         $this->start_date = now()->startOfMonth()->toDateString();
         $this->end_date = now()->endOfMonth()->toDateString();
+        $this->shift_id = null;
+        $this->departemen_id = null;
     }
 
     public function form(\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
@@ -62,13 +66,27 @@ class AttendanceReport extends Page
 
             Select::make('shift_id')
                 ->label('Shift')
-                ->placeholder('Semua Shift')
-                ->options(fn() => ShiftKerja::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                ->options(function () {
+                    $shifts = ShiftKerja::query()->orderBy('name')->pluck('name', 'id')->toArray();
+                    return [null => 'Semua Shift'] + $shifts;
+                })
                 ->searchable()
                 ->native(false)
                 ->default($this->shift_id)
                 ->live()
                 ->afterStateUpdated(fn($state) => $this->shift_id = $state),
+
+            Select::make('departemen_id')
+                ->label('Departemen')
+                ->options(function () {
+                    $departemens = Departemen::query()->orderBy('name')->pluck('name', 'id')->toArray();
+                    return [null => 'Semua Departemen'] + $departemens;
+                })
+                ->searchable()
+                ->native(false)
+                ->default($this->departemen_id)
+                ->live()
+                ->afterStateUpdated(fn($state) => $this->departemen_id = $state),
         ]);
     }
 
@@ -97,6 +115,7 @@ class AttendanceReport extends Page
             'start_date' => $this->start_date,
             'end_date' => $this->end_date,
             'shift_id' => $this->shift_id,
+            'departemen_id' => $this->departemen_id,
             'export' => $format,
         ];
 
@@ -105,6 +124,7 @@ class AttendanceReport extends Page
             'start_date' => ['required', 'date_format:Y-m-d'],
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'shift_id' => ['nullable', 'integer'],
+            'departemen_id' => ['nullable', 'integer'],
             'export' => ['required', 'in:csv,xlsx'],
         ])->validate();
 
@@ -115,7 +135,7 @@ class AttendanceReport extends Page
 
     protected function getViewData(): array
     {
-        $query = $this->getAttendanceQuery()->with(['user:id,name', 'shift:id,name']);
+        $query = $this->getAttendanceQuery()->with(['user:id,name,departemen_id', 'shift:id,name']);
         $attendances = $query->orderBy('date')->orderBy('user_id')->get();
 
         return [
@@ -131,7 +151,10 @@ class AttendanceReport extends Page
 
         return Attendance::query()
             ->whereBetween('date', [$start, $end])
-            ->when($this->shift_id, fn(Builder $q) => $q->where('shift_id', $this->shift_id));
+            ->when($this->shift_id, fn(Builder $q) => $q->where('shift_id', $this->shift_id))
+            ->when($this->departemen_id, fn(Builder $q) =>
+                $q->whereHas('user', fn(Builder $uq) => $uq->where('departemen_id', $this->departemen_id))
+            );
     }
 
     protected function summarize(Collection $attendances): array
