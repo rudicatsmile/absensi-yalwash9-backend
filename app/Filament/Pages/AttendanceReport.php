@@ -37,8 +37,8 @@ class AttendanceReport extends Page
 
     public function mount(): void
     {
-        $this->start_date = now()->startOfMonth()->toDateString();
-        $this->end_date = now()->endOfMonth()->toDateString();
+        $this->start_date = now()->toDateString();
+        $this->end_date = now()->toDateString();
         $this->shift_id = null;
         $this->departemen_id = null;
     }
@@ -51,7 +51,7 @@ class AttendanceReport extends Page
                 ->required()
                 ->native(false)
                 ->displayFormat('Y-m-d')
-                ->default($this->start_date)
+                ->default(now())
                 ->live()
                 ->afterStateUpdated(fn($state) => $this->start_date = $state),
 
@@ -60,7 +60,7 @@ class AttendanceReport extends Page
                 ->required()
                 ->native(false)
                 ->displayFormat('Y-m-d')
-                ->default($this->end_date)
+                ->default(now())
                 ->live()
                 ->afterStateUpdated(fn($state) => $this->end_date = $state),
 
