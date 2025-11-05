@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Api;
+use Illuminate\Support\Facades\Log;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class ReportController extends Controller
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
         $shiftId = $request->input('shift_id');
+        $departemenId = $request->input('departemen_id');
 
         $page = (int) ($request->input('page', 1));
         $perPage = (int) ($request->input('per_page', 25));
@@ -42,6 +44,12 @@ class ReportController extends Controller
             DB::statement('SET @shift_id = ?', [(int) $shiftId]);
         } else {
             DB::statement('SET @shift_id = NULL');
+        }
+        //add @departemen_id
+        if ($departemenId !== null) {
+            DB::statement('SET @departemen_id = ?', [(int) $departemenId]);
+        } else {
+            DB::statement('SET @departemen_id = NULL');
         }
         DB::statement('SET @limit = ?', [$perPage]);
         DB::statement('SET @offset = ?', [$offset]);
@@ -116,11 +124,21 @@ class ReportController extends Controller
                  CONCAT('  AND a.shift_id = ', @shift_id, '\\n'),
                  '  -- Semua shift\\n'
               ),
+              'WHERE 1=1 ',
+              -- add @departemen_id
+              IF(@departemen_id IS NOT NULL,
+                 CONCAT('  AND u.departemen_id = ', @departemen_id, '\\n'),
+                 '  -- Semua departemen\\n'
+              ),
               'GROUP BY u.id, u.name\\n',
               'ORDER BY u.id\\n',
               'LIMIT ', @limit, ' OFFSET ', @offset
             );
         ");
+
+        //write to log @sql
+        // Log::info('AttendanceReportQuery', ['sql' => @sql]);
+
 
         DB::statement('PREPARE stmt FROM @sql;');
         $rows = DB::select('EXECUTE stmt;');
