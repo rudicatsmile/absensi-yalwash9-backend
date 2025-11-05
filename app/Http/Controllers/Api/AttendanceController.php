@@ -79,6 +79,7 @@ class AttendanceController extends Controller
         //$attendance->shift_id = $activeShift?->id;
         $attendance->shift_id = $request->shift_kerja_id;
         $attendance->company_location_id = $request->company_location_id;
+        $attendance->departemen_id = $currentUser->departemen_id;
         $attendance->date = $currentDateTime->toDateString();
         $attendance->time_in = $currentDateTime->toTimeString();
         $attendance->latlon_in = $request->latitude . ',' . $request->longitude;
