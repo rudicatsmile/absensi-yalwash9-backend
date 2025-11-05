@@ -50,18 +50,20 @@ class AttendanceReport extends Page
                 ->label('Tanggal Awal')
                 ->required()
                 ->native(false)
-                ->displayFormat('Y-m-d')
+                ->displayFormat('d-m-y')
                 ->default(now())
                 ->live()
+                ->closeOnDateSelection()
                 ->afterStateUpdated(fn($state) => $this->start_date = $state),
 
             DatePicker::make('end_date')
                 ->label('Tanggal Akhir')
                 ->required()
                 ->native(false)
-                ->displayFormat('Y-m-d')
+                ->displayFormat('d-m-y')
                 ->default(now())
                 ->live()
+                ->closeOnDateSelection()
                 ->afterStateUpdated(fn($state) => $this->end_date = $state),
 
             Select::make('shift_id')
