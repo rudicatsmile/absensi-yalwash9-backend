@@ -37,7 +37,7 @@
     </style>
 @endpush
 
-<x-filament-panels::page>
+
     <div class="max-w-7xl mx-auto space-y-6" role="main" aria-label="Laporan Kehadiran">
         {{-- Header Section --}}
         <header class="bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl shadow-lg overflow-hidden">
@@ -357,4 +357,3 @@
             </div>
         </aside>
     </div>
-</x-filament-panels::page>

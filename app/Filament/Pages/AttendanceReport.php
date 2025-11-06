@@ -25,7 +25,6 @@ class AttendanceReport extends Page
     protected static ?string $navigationLabel = 'Laporan Kehadiran';
     protected static ?string $title = 'Laporan Kehadiran';
     protected static UnitEnum|string|null $navigationGroup = 'Laporan';
-
     protected static ?int $navigationSort = 10;
 
     public ?string $start_date = null;
@@ -154,7 +153,9 @@ class AttendanceReport extends Page
         return Attendance::query()
             ->whereBetween('date', [$start, $end])
             ->when($this->shift_id, fn(Builder $q) => $q->where('shift_id', $this->shift_id))
-            ->when($this->departemen_id, fn(Builder $q) =>
+            ->when(
+                $this->departemen_id,
+                fn(Builder $q) =>
                 $q->whereHas('user', fn(Builder $uq) => $uq->where('departemen_id', $this->departemen_id))
             );
     }
