@@ -34,7 +34,7 @@ class ReportController extends Controller
         $departemenId = $request->input('departemen_id');
 
         $page = (int) ($request->input('page', 1));
-        $perPage = (int) ($request->input('per_page', 25));
+        $perPage = (int) ($request->input('per_page', 250));
         $offset = ($page - 1) * $perPage;
 
         // Set variabel MySQL untuk dipakai di query dinamis (berdasarkan query.sql)

@@ -208,11 +208,12 @@ class AttendanceController extends Controller
             ->when($shiftKerjaId !== null && $shiftKerjaId !== '', function ($query) use ($shiftKerjaId) {
                 $shiftIdInt = (int) $shiftKerjaId;
 
-                if ($shiftIdInt === 5) {
-                    $query->where('shift_id', 5);
-                } else {
-                    $query->where('shift_id', '<>', 5);
-                }
+                // if ($shiftIdInt === 5) {
+                //     $query->where('shift_id', 5);
+                // } else {
+                //     $query->where('shift_id', '<>', 5);
+                // }
+                $query->where('shift_id', $shiftIdInt);
             })
             ->whereDate('date', now())
             ->first();
