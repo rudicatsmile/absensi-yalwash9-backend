@@ -31,14 +31,16 @@ class UsersTable
                     '))
                     ->size(50),
                 TextColumn::make('name')
-                    ->searchable()
+                    ->label('Nama / Email')
+                    ->getStateUsing(function ($record) {
+                        $name = e($record->name ?? '');
+                        $email = e($record->email ?? '');
+                        return "<div>{$name}<div class=\"text-xs italic text-slate-500\">{$email}</div></div>";
+                    })
+                    ->html()
+                    ->searchable(['name', 'email'])
                     ->sortable(),
-                // TextColumn::make('email')
-                //     ->label('Email')
-                //     ->searchable()
-                //     ->sortable(),
-                // TextColumn::make('phone')
-                //     ->searchable(),
+              
                 // TextColumn::make('role')
                 //     ->badge()
                 //     ->color(fn (string $state): string => match ($state) {
@@ -109,14 +111,20 @@ class UsersTable
                         'manager' => 'Manager',
                         'employee' => 'Employee',
                     ]),
-                SelectFilter::make('department')
-                    ->options(function () {
-                        return \App\Models\User::distinct()
-                            ->whereNotNull('department')
-                            ->pluck('department', 'department')
-                            ->toArray();
-                    })
-                    ->searchable(),
+                SelectFilter::make('departemen_id')
+                    ->label('Departemen')
+                    ->options(\App\Models\Departemen::query()
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->toArray())
+                    ->preload()
+                    ->searchable()
+                    ->query(function (Builder $query, array $data) {
+                        $id = $data['value'] ?? null;
+                        if ($id && \App\Models\Departemen::whereKey($id)->exists()) {
+                            $query->where('departemen_id', $id);
+                        }
+                    }),
             ])
             ->recordActions([
                 ViewAction::make(),

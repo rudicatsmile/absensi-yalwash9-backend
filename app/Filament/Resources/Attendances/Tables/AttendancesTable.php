@@ -44,13 +44,13 @@ class AttendancesTable
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'on_time' => 'On Time',
                         'late' => 'Late',
                         'absent' => 'Absent',
                         default => ucfirst($state),
                     })
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'on_time' => 'success',
                         'late' => 'warning',
                         'absent' => 'danger',
@@ -60,7 +60,7 @@ class AttendancesTable
                 TextColumn::make('total_hours')
                     ->label('Total Hours')
                     ->getStateUsing(function ($record) {
-                        if (! $record->time_out) {
+                        if (!$record->time_out) {
                             return '-';
                         }
                         $checkIn = \Carbon\Carbon::parse($record->time_in);
@@ -93,38 +93,105 @@ class AttendancesTable
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('date_from')
                             ->label('From Date')
-                            ->default(now()->subMonth()),
+                            ->default(\Carbon\Carbon::today()),
                         \Filament\Forms\Components\DatePicker::make('date_to')
                             ->label('To Date')
-                            ->default(now()),
+                            ->default(\Carbon\Carbon::today()),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
                                 $data['date_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('date', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('date', '>=', $date),
                             )
                             ->when(
                                 $data['date_to'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('date', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('date', '<=', $date),
                             );
                     })
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
-                        if ($data['date_from'] ?? null) {
-                            $indicators[] = 'From: '.\Carbon\Carbon::parse($data['date_from'])->format('d M Y');
+                        $from = $data['date_from'] ?? null;
+                        $to   = $data['date_to'] ?? null;
+
+                        if ($from && $to && $from === $to) {
+                            $indicators[] = 'Today: ' . \Carbon\Carbon::parse($from)->format('d M Y');
+                            return $indicators;
                         }
-                        if ($data['date_to'] ?? null) {
-                            $indicators[] = 'To: '.\Carbon\Carbon::parse($data['date_to'])->format('d M Y');
+
+                        if ($from) {
+                            $indicators[] = 'From: ' . \Carbon\Carbon::parse($from)->format('d M Y');
+                        }
+                        if ($to) {
+                            $indicators[] = 'To: ' . \Carbon\Carbon::parse($to)->format('d M Y');
                         }
 
                         return $indicators;
                     }),
-                SelectFilter::make('user_id')
-                    ->label('User')
-                    ->relationship('user', 'name')
-                    ->searchable()
-                    ->preload(),
+
+
+                //-----------------
+                \Filament\Tables\Filters\Filter::make('departemen_id')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('departemen_id')
+                            ->label('Departemen')
+                            ->options(
+                                \App\Models\Departemen::query()
+                                    // ->orderBy('urut')
+                                    ->pluck('name', 'id')
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(function (callable $set) {
+                                $set('user_id', null);
+                            }),
+
+                        \Filament\Forms\Components\Select::make('user_id')
+                            ->label('User')
+                            ->options(function (callable $get) {
+                                $departemenId = $get('departemen_id');
+
+                                $query = \App\Models\User::query()
+                                    ->select('id', 'nip', 'name');
+
+                                if (is_array($departemenId) && count($departemenId)) {
+                                    $ids = array_map(static fn($v) => (int) $v, $departemenId);
+                                    $query->whereIn('departemen_id', $ids);
+                                } elseif (is_numeric($departemenId)) {
+                                    $query->where('departemen_id', (int) $departemenId);
+                                }
+
+                                return $query->orderBy('name')
+                                    ->get()
+                                    ->mapWithKeys(function ($user) {
+                                        return [$user->id => $user->name];
+                                    })
+                                    ->toArray();
+                            })
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['departemen_id'] ?? null, function ($query, $departemenId) {
+                                if (is_array($departemenId)) {
+                                    return $query->whereIn('departemen_id', array_map('intval', $departemenId));
+                                }
+                                return $query->where('departemen_id', (int) $departemenId);
+                            })
+                            ->when($data['user_id'] ?? null, function ($query, $userId) {
+                                return $query->where('user_id', (int) $userId);
+                            });
+                    }),
+
+
+
+
+                //-----------------
+
+                // Tambahan: Dropdown Departemen
+
                 SelectFilter::make('status')
                     ->options([
                         'on_time' => 'On Time',
@@ -149,7 +216,7 @@ class AttendancesTable
                     ->action(function ($livewire) {
                         $query = $livewire->getFilteredSortedTableQuery();
 
-                        if (! $query) {
+                        if (!$query) {
                             return null;
                         }
 
@@ -171,7 +238,7 @@ class AttendancesTable
                             }
 
                             $csv .= sprintf(
-                                '"%s","%s","%s","%s","%s","%s","%s"'."\n",
+                                '"%s","%s","%s","%s","%s","%s","%s"' . "\n",
                                 $attendance->user->name,
                                 $attendance->date ? \Carbon\Carbon::parse($attendance->date)->format('d M Y') : '-',
                                 $attendance->time_in ? \Carbon\Carbon::parse($attendance->time_in)->format('H:i') : '-',
@@ -184,7 +251,7 @@ class AttendancesTable
 
                         return response()->streamDownload(function () use ($csv) {
                             echo $csv;
-                        }, 'attendances-'.now()->format('Y-m-d').'.csv');
+                        }, 'attendances-' . now()->format('Y-m-d') . '.csv');
                     }),
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -192,4 +259,32 @@ class AttendancesTable
             ])
             ->defaultSort('date', 'desc');
     }
+
+    // Helper bersama untuk membaca pilihan Departemen dari state filter (Filament v2/v3), dengan sanitasi.
+    private static function getSelectedDepartemenIds(): array
+    {
+        // ... existing code ...
+        try {
+            // Dukung 'tableFilters' (v3) atau 'filters' (v2)
+            $filters = request()->input('tableFilters', request()->input('filters', []));
+            $depFilter = $filters['departemen_id'] ?? [];
+
+            // Dukung bentuk 'value' (single) atau 'values' (multiple)
+            $raw = $depFilter['values'] ?? ($depFilter['value'] ?? []);
+
+            return collect((array) $raw)
+                ->filter(fn($v) => is_numeric($v))
+                ->map(fn($v) => (int) $v)
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Gagal membaca state filter Departemen', [
+                'exception' => $e,
+            ]);
+            return [];
+        }
+        // ... existing code ...
+    }
 }
+
+

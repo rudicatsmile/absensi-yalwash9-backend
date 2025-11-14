@@ -48,4 +48,16 @@ class Attendance extends Model
     {
         return $this->belongsTo(ShiftKerja::class, 'shift_id');
     }
+
+    //add relation to company location
+    public function companyLocation()
+    {
+        return $this->belongsTo(CompanyLocation::class);
+    }
+
+    //add relation to departemen
+    public function departemen()
+    {
+        return $this->belongsTo(Departemen::class);
+    }
 }

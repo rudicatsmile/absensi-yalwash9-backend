@@ -1,0 +1,49 @@
+\Filament\Tables\Filters\Filter::make('unit_kerja_pegawai')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('unit_kerja')
+                            ->label('Unit Kerja')
+                            ->options(
+                                \App\Models\UnitKerja::query()
+                                    ->orderBy('urut')
+                                    ->pluck('nama_unit_kerja', 'kode')
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(function (callable $set) {
+                                $set('data_pegawai', null);
+                            }),
+
+                        \Filament\Forms\Components\Select::make('data_pegawai')
+                            ->label('Data Pegawai')
+                            ->options(function (callable $get) {
+                                $unitKerjaKode = $get('unit_kerja');
+
+                                $query = \App\Models\DataPegawai::query()
+                                    ->select('nik', 'nip', 'nama_lengkap');
+
+                                if ($unitKerjaKode) {
+                                    $query->where('kode_unit_kerja', $unitKerjaKode);
+                                }
+
+                                return $query->orderBy('nama_lengkap')
+                                    ->get()
+                                    ->mapWithKeys(function ($pegawai) {
+                                        return [$pegawai->nik => $pegawai->nama_lengkap . ' (' . $pegawai->nip . ')'];
+                                    })
+                                    ->toArray();
+                            })
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['unit_kerja'], function ($query, $kodeUnitKerja) {
+                                $query->whereHas('pegawai', function ($query) use ($kodeUnitKerja) {
+                                    $query->where('kode_unit_kerja', $kodeUnitKerja);
+                                });
+                            })
+                            ->when($data['data_pegawai'], function ($query, $nikPegawai) {
+                                $query->where('nik_data_pegawai', $nikPegawai);
+                            });
+                    }),
