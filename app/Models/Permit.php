@@ -11,6 +11,7 @@ class Permit extends Model
     protected $fillable = [
         'employee_id',
         'permit_type_id',
+        'shift_id',
         'start_date',
         'end_date',
         'total_days',

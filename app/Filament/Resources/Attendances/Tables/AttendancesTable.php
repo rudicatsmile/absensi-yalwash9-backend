@@ -88,14 +88,113 @@ class AttendancesTable
                     ->limit(20)
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+
+
+            // Tampilkan form filter di atas tabel, dalam 4 kolom
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
+            ->filtersFormColumns(4)
+
             ->filters([
-                Filter::make('date_range')
+                // Filter tanggal: From Date & To Date (default hari ini)
+                \Filament\Tables\Filters\Filter::make('date_range')
+                    ->label('Tanggal')
                     ->form([
                         \Filament\Forms\Components\DatePicker::make('date_from')
                             ->label('From Date')
                             ->default(\Carbon\Carbon::today()),
                         \Filament\Forms\Components\DatePicker::make('date_to')
                             ->label('To Date')
+                            ->default(\Carbon\Carbon::today()),
+                    ])
+                    ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
+                        return $query
+                            ->when(
+                                $data['date_from'] ?? null,
+                                fn(\Illuminate\Database\Eloquent\Builder $query, $date): \Illuminate\Database\Eloquent\Builder => $query->whereDate('date', '>=', $date),
+                            )
+                            ->when(
+                                $data['date_to'] ?? null,
+                                fn(\Illuminate\Database\Eloquent\Builder $query, $date): \Illuminate\Database\Eloquent\Builder => $query->whereDate('date', '<=', $date),
+                            );
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $from = $data['date_from'] ?? null;
+                        $to = $data['date_to'] ?? null;
+
+                        if ($from && $to && $from === $to) {
+                            return ['Today: ' . \Carbon\Carbon::parse($from)->format('d M Y')];
+                        }
+
+                        $indicators = [];
+                        if ($from) {
+                            $indicators[] = 'From: ' . \Carbon\Carbon::parse($from)->format('d M Y');
+                        }
+                        if ($to) {
+                            $indicators[] = 'To: ' . \Carbon\Carbon::parse($to)->format('d M Y');
+                        }
+                        return $indicators;
+                    }),
+
+                // Filter Departemen
+                \Filament\Tables\Filters\SelectFilter::make('departemen_id')
+                    ->label('Departemen')
+                    ->options(\App\Models\Departemen::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                    ->searchable()
+                    ->preload()
+                    ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
+                        $value = $data['value'] ?? null;
+                        if (!is_numeric($value)) {
+                            return $query;
+                        }
+                        return $query->where('departemen_id', (int) $value);
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $value = $data['value'] ?? null;
+                        if (!is_numeric($value)) {
+                            return [];
+                        }
+                        $name = \App\Models\Departemen::where('id', (int) $value)->value('name');
+                        return $name ? ['Departemen: ' . $name] : [];
+                    }),
+
+                // Filter User (opsi tergantung Departemen terpilih)
+                \Filament\Tables\Filters\SelectFilter::make('user_id')
+                    ->label('User')
+                    ->options(function (): array {
+                        $departemenIds = self::getSelectedDepartemenIds();
+
+                        $query = \App\Models\User::query()
+                            ->select('id', 'name', 'nip')
+                            ->when(!empty($departemenIds), function ($q) use ($departemenIds) {
+                                $q->whereIn('departemen_id', $departemenIds);
+                            });
+
+                        return $query->orderBy('name')
+                            ->get()
+                            ->mapWithKeys(function ($user) {
+                                return [$user->id => $user->name . ' (' . $user->nip . ')'];
+                            })
+                            ->toArray();
+                    })
+                    ->searchable()
+                    ->preload()
+                    ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
+                        $value = $data['value'] ?? null;
+                        if (!is_numeric($value)) {
+                            return $query;
+                        }
+                        return $query->where('user_id', (int) $value);
+                    }),
+            ])
+
+            ->filters([
+                Filter::make('date_range')
+                    ->form([
+                        \Filament\Forms\Components\DatePicker::make('date_from')
+                            ->label('Tanggal Awal')
+                            ->default(\Carbon\Carbon::today()),
+                        \Filament\Forms\Components\DatePicker::make('date_to')
+                            ->label('Tanggal Akhir')
                             ->default(\Carbon\Carbon::today()),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
@@ -112,7 +211,7 @@ class AttendancesTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         $from = $data['date_from'] ?? null;
-                        $to   = $data['date_to'] ?? null;
+                        $to = $data['date_to'] ?? null;
 
                         if ($from && $to && $from === $to) {
                             $indicators[] = 'Today: ' . \Carbon\Carbon::parse($from)->format('d M Y');
@@ -134,7 +233,7 @@ class AttendancesTable
                 \Filament\Tables\Filters\Filter::make('departemen_id')
                     ->form([
                         \Filament\Forms\Components\Select::make('departemen_id')
-                            ->label('Departemen')
+                            ->label('Lembaga')
                             ->options(
                                 \App\Models\Departemen::query()
                                     // ->orderBy('urut')
