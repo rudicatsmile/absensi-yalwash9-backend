@@ -98,9 +98,9 @@ class LeaveController extends Controller
             ->where('year', $year)
             ->first();
 
-        if (! $leaveBalance) {
+        if (!$leaveBalance) {
             return response()->json([
-                'message' => 'Leave balance not found for this leave type',
+                'message' => 'Sisa cuti tidak ditemukan untuk jenis cuti ini',
             ], 400);
         }
 
