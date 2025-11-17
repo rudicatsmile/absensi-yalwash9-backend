@@ -14,9 +14,10 @@
         <div class="p-6">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <h2 id="filter-heading" class="text-lg font-semibold text-slate-900">Filter</h2>
-                <span class="inline-flex px-3 py-1 text-xs font-medium bg-slate-100 text-slate-600 rounded-full">
-                    Periode Aktif
-                </span>
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex px-3 py-1 text-xs font-medium bg-slate-100 text-slate-600 rounded-full">Periode Aktif</span>
+                    <button id="sidebarToggle" type="button" class="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300">Sembunyikan Sidebar</button>
+                </div>
             </div>
             <div class="bg-slate-50 rounded-lg p-4">
                 {{ $this->form }}
@@ -34,7 +35,7 @@
     <section class="bg-white rounded-xl shadow-sm border border-slate-200" aria-labelledby="report-heading">
         <div class="px-6 py-4 border-b border-slate-200">
             <h2 id="report-heading" class="text-lg font-semibold text-slate-900 mb-1">Matriks Kehadiran per Tanggal</h2>
-            <p class="text-sm text-slate-600">Periode: {{ $this->start_date }} s/d {{ $this->end_date }}</p>
+            <p class="text-sm text-slate-600">Periode: {{ \Carbon\Carbon::parse($this->start_date)->format('d-m-Y') }} s/d {{ \Carbon\Carbon::parse($this->end_date)->format('d-m-Y') }}</p>
             @if(($this->status ?? 'semua') === 'semua' && !empty($rows))
                 @php
                     $presentEmployees = 0; $excusedEmployees = 0; $absentEmployees = 0;
@@ -138,6 +139,18 @@
             (function() {
                 var chartPresence = null;
                 var chartAbsence = null;
+                var refreshScheduled = false;
+                function getSidebarHidden() { return localStorage.getItem('sidebarHidden') === '1'; }
+                function setSidebarHidden(v) { localStorage.setItem('sidebarHidden', v ? '1' : '0'); }
+                function applySidebarState(hidden) {
+                    var aside = document.querySelector('aside.fi-sidebar, aside.filament-sidebar');
+                    if (aside) aside.classList.toggle('hidden', hidden);
+                }
+                function updateSidebarToggleLabel() {
+                    var btn = document.getElementById('sidebarToggle');
+                    if (!btn) return;
+                    btn.textContent = getSidebarHidden() ? 'Tampilkan Sidebar' : 'Sembunyikan Sidebar';
+                }
                 function parseTotals() {
                     try {
                         var el = document.getElementById('matrix-totals');
@@ -145,6 +158,38 @@
                     } catch (e) {
                         return null;
                     }
+                }
+                function getMetrics() {
+                    var p = document.getElementById('presenceChart');
+                    var w = p && p.parentElement ? (p.parentElement.clientWidth || 600) : 600;
+                    var h = Math.max(240, Math.min(480, Math.round(w * 0.55)));
+                    var font = w < 400 ? 11 : w < 640 ? 12 : w < 900 ? 13 : 14;
+                    var padding = w < 400 ? 6 : w < 640 ? 8 : 10;
+                    var radius = w < 400 ? 4 : 6;
+                    return { w: w, h: h, font: font, padding: padding, radius: radius };
+                }
+                function setContainerHeights() {
+                    var p = document.getElementById('presenceChart');
+                    var a = document.getElementById('absenceBreakdownChart');
+                    [p, a].forEach(function(c) {
+                        if (!c || !c.parentElement) return;
+                        var w = c.parentElement.clientWidth || 600;
+                        var h = Math.max(240, Math.min(420, Math.round(w * 0.55)));
+                        c.parentElement.style.height = h + 'px';
+                    });
+                }
+                function syncCanvasSizes() {
+                    var p = document.getElementById('presenceChart');
+                    var a = document.getElementById('absenceBreakdownChart');
+                    [p, a].forEach(function(c) {
+                        if (!c || !c.parentElement) return;
+                        var w = c.parentElement.clientWidth || 600;
+                        var h = c.parentElement.clientHeight || 300;
+                        c.style.width = '100%';
+                        c.style.height = '100%';
+                        c.width = w;
+                        c.height = h;
+                    });
                 }
                 function showLoading(id, show) {
                     var el = document.getElementById(id);
@@ -166,27 +211,54 @@
                     for (var i = 0; i < values.length; i++) m = Math.max(m, values[i] || 0);
                     return m === 0 ? 5 : Math.ceil(m * 1.15);
                 }
+                function buildPresenceLabels(t) {
+                    var p = (t && t.present) ? t.present : 0;
+                    var z = (t && t.absent_by_permit) ? t.absent_by_permit : 0;
+                    var a = (t && t.absent_unexcused) ? t.absent_unexcused : 0;
+                    return ['Hadir (' + p + ')', 'Izin (' + z + ')', 'Tidak Hadir (' + a + ')'];
+                }
                 function initCharts(totals) {
                     var presenceCtx = document.getElementById('presenceChart').getContext('2d');
                     var absenceCtx = document.getElementById('absenceBreakdownChart').getContext('2d');
+                    var metrics = getMetrics();
                     chartPresence = new Chart(presenceCtx, {
-                        type: 'bar',
+                        type: 'doughnut',
                         data: {
-                            labels: ['Hadir', 'Tidak Hadir'],
+                            labels: buildPresenceLabels(totals),
                             datasets: [{
-                                label: 'Jumlah Hari',
-                                data: [totals.present || 0, totals.absent || 0],
-                                backgroundColor: ['#22c55e', '#ef4444'],
+                                label: 'Grafik Kehadiran',
+                                data: [
+                                    totals.present || 0,
+                                    totals.absent_by_permit || 0,
+                                    totals.absent_unexcused || 0
+                                ],
+                                backgroundColor: ['#22c55e', '#3b82f6', '#ef4444'],
                                 borderSkipped: false,
-                                borderRadius: 6
+                                borderRadius: metrics.radius
                             }]
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            layout: { padding: 8 },
-                            plugins: { legend: { display: true, position: 'bottom' } },
-                            scales: { y: { beginAtZero: true, suggestedMax: calcMax([totals.present || 0, totals.absent || 0]) } }
+                            layout: { padding: metrics.padding },
+                            animation: { duration: 600, easing: 'easeInOutQuart' },
+                            plugins: { legend: { display: true, position: 'bottom', labels: { font: { size: metrics.font } } }, tooltip: { titleFont: { size: metrics.font + 1 }, bodyFont: { size: metrics.font } } },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    min: 0,
+                                    suggestedMin: 0,
+                                    suggestedMax: calcMax([
+                                        totals.present || 0,
+                                        totals.absent_by_permit || 0,
+                                        totals.absent_unexcused || 0
+                                    ]),
+                                    ticks: { font: { size: metrics.font } }
+                                },
+                                x: {
+                                    ticks: { autoSkip: false, font: { size: metrics.font }, maxRotation: 0 }
+                                }
+                            }
                         }
                     });
                     chartAbsence = new Chart(absenceCtx, {
@@ -198,22 +270,61 @@
                                 backgroundColor: ['#3b82f6', '#f59e0b'],
                             }]
                         },
-                        options: { responsive: true, maintainAspectRatio: false, layout: { padding: 8 }, plugins: { legend: { display: true, position: 'bottom' } } }
+                        options: { responsive: true, maintainAspectRatio: false, layout: { padding: metrics.padding }, animation: { duration: 600, easing: 'easeInOutQuart' }, plugins: { legend: { display: true, position: 'bottom', labels: { font: { size: metrics.font } } }, tooltip: { titleFont: { size: metrics.font + 1 }, bodyFont: { size: metrics.font } } } }
                     });
                 }
                 function updateCharts(totals) {
                     if (!chartPresence || !chartAbsence) return initCharts(totals);
-                    var emptyPresence = (!totals || ((totals.present || 0) + (totals.absent || 0)) === 0);
+                    var metrics = getMetrics();
+                    var emptyPresence = (!totals || (
+                        (totals.present || 0) +
+                        (totals.absent_by_permit || 0) +
+                        (totals.absent_unexcused || 0)
+                    ) === 0);
                     var emptyAbsence = (!totals || ((totals.absent_by_permit || 0) + (totals.absent_unexcused || 0)) === 0);
                     toggleEmpty('presenceChartEmpty', emptyPresence);
                     toggleEmpty('absenceChartEmpty', emptyAbsence);
-                    chartPresence.data.datasets[0].data = [totals.present || 0, totals.absent || 0];
-                    chartPresence.options.scales.y.suggestedMax = calcMax([totals.present || 0, totals.absent || 0]);
+                    chartPresence.data.labels = buildPresenceLabels(totals);
+                    chartPresence.data.datasets[0].data = [
+                        totals.present || 0,
+                        totals.absent_by_permit || 0,
+                        totals.absent_unexcused || 0
+                    ];
+                    chartPresence.data.datasets[0].borderRadius = metrics.radius;
+                    chartPresence.options.scales.y.min = 0;
+                    chartPresence.options.scales.y.suggestedMin = 0;
+                    chartPresence.options.scales.y.suggestedMax = calcMax([
+                        totals.present || 0,
+                        totals.absent_by_permit || 0,
+                        totals.absent_unexcused || 0
+                    ]);
+                    chartPresence.options.scales.y.ticks = chartPresence.options.scales.y.ticks || {};
+                    chartPresence.options.scales.y.ticks.font = { size: metrics.font };
+                    chartPresence.options.scales.x.ticks = chartPresence.options.scales.x.ticks || {};
+                    chartPresence.options.scales.x.ticks.font = { size: metrics.font };
+                    chartPresence.options.layout = chartPresence.options.layout || {};
+                    chartPresence.options.layout.padding = metrics.padding;
+                    chartPresence.options.plugins = chartPresence.options.plugins || {};
+                    chartPresence.options.plugins.legend = chartPresence.options.plugins.legend || {};
+                    chartPresence.options.plugins.legend.labels = chartPresence.options.plugins.legend.labels || {};
+                    chartPresence.options.plugins.legend.labels.font = { size: metrics.font };
+                    chartPresence.options.plugins.tooltip = chartPresence.options.plugins.tooltip || {};
+                    chartPresence.options.plugins.tooltip.titleFont = { size: metrics.font + 1 };
+                    chartPresence.options.plugins.tooltip.bodyFont = { size: metrics.font };
                     chartPresence.update();
                     chartAbsence.data.datasets[0].data = [totals.absent_by_permit || 0, totals.absent_unexcused || 0];
+                    chartAbsence.options.layout = chartAbsence.options.layout || {};
+                    chartAbsence.options.layout.padding = metrics.padding;
+                    chartAbsence.options.plugins = chartAbsence.options.plugins || {};
+                    chartAbsence.options.plugins.legend = chartAbsence.options.plugins.legend || {};
+                    chartAbsence.options.plugins.legend.labels = chartAbsence.options.plugins.legend.labels || {};
+                    chartAbsence.options.plugins.legend.labels.font = { size: metrics.font };
+                    chartAbsence.options.plugins.tooltip = chartAbsence.options.plugins.tooltip || {};
+                    chartAbsence.options.plugins.tooltip.titleFont = { size: metrics.font + 1 };
+                    chartAbsence.options.plugins.tooltip.bodyFont = { size: metrics.font };
                     chartAbsence.update();
                 }
-                function refresh() {
+                function doRefresh() {
                     showLoading('presenceChartLoading', true);
                     showLoading('absenceChartLoading', true);
                     var totals = parseTotals();
@@ -228,16 +339,43 @@
                     showLoading('presenceChartLoading', false);
                     showLoading('absenceChartLoading', false);
                 }
+                function refresh() {
+                    if (refreshScheduled) return;
+                    refreshScheduled = true;
+                    setTimeout(function() {
+                        setContainerHeights();
+                        syncCanvasSizes();
+                        doRefresh();
+                        refreshScheduled = false;
+                    }, 120);
+                }
                 var elTotals = document.getElementById('matrix-totals');
                 var initTotals = parseTotals();
+                setContainerHeights();
+                applySidebarState(getSidebarHidden());
+                updateSidebarToggleLabel();
                 initCharts(initTotals || { present: 0, absent: 0, absent_by_permit: 0, absent_unexcused: 0 });
                 refresh();
+                var btn = document.getElementById('sidebarToggle');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var next = !getSidebarHidden();
+                        setSidebarHidden(next);
+                        applySidebarState(next);
+                        setContainerHeights();
+                        syncCanvasSizes();
+                        refresh();
+                        updateSidebarToggleLabel();
+                    });
+                }
                 if (elTotals) {
                     var obs = new MutationObserver(function() { refresh(); });
                     obs.observe(elTotals, { characterData: true, childList: true, subtree: true });
                 }
                 document.addEventListener('livewire:updated', function() { refresh(); });
                 window.addEventListener('resize', function() {
+                    setContainerHeights();
+                    syncCanvasSizes();
                     if (chartPresence) chartPresence.resize();
                     if (chartAbsence) chartAbsence.resize();
                 });
