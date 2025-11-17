@@ -216,6 +216,7 @@ class ReportController extends Controller
             'shift_id' => ['nullable', 'integer', 'exists:shift_kerjas,id'],
             'status' => ['nullable', 'in:semua,Hadir,Tidak Hadir'],
             'mode' => ['nullable', 'in:check,jumlah shift'],
+            'format' => ['nullable', 'in:pdf,xlsx']
         ]);
 
         if ($validator->fails()) {
@@ -234,6 +235,82 @@ class ReportController extends Controller
 
         $service = app(\App\Services\Reports\AttendancePresenceService::class);
         $result = $service->buildMatrix($startDate, $endDate, $departemenId, $shiftId, $status, $mode);
+
+        $format = strtolower($request->query('format', 'json'));
+
+        if ($format === 'pdf') {
+            try {
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('filament.pages.attendance-presence-report-pdf', [
+                    'matrix' => $result,
+                    'filters' => [
+                        'start_date' => $startDate,
+                        'end_date' => $endDate,
+                        'departemen_id' => $departemenId,
+                        'shift_id' => $shiftId,
+                        'status' => $status,
+                        'mode' => $mode,
+                    ],
+                    'exported_at' => now()->format('d/m/Y H:i'),
+                ])->setPaper('A4', 'landscape')->setOptions([
+                    'dpi' => 150,
+                    'defaultFont' => 'sans-serif',
+                    'isHtml5ParserEnabled' => true,
+                    'isRemoteEnabled' => true,
+                ]);
+
+                $filename = 'laporan-kehadiran-'.now()->format('Y-m-d-H-i-s').'.pdf';
+                return response()->streamDownload(function () use ($pdf) {
+                    echo $pdf->output();
+                }, $filename, ['Content-Type' => 'application/pdf']);
+            } catch (\Throwable $e) {
+                return response()->json(['message' => 'Export PDF gagal', 'error' => $e->getMessage()], 500);
+            }
+        }
+
+        if ($format === 'xlsx') {
+            try {
+                $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+                $sheet = $spreadsheet->getActiveSheet();
+
+                $sheet->setCellValue('A1', 'No');
+                $sheet->setCellValue('B1', 'Nama');
+                $col = 3;
+                foreach ($result['dates'] as $d) {
+                    $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col).'1', \Carbon\Carbon::parse($d)->format('d-m-Y'));
+                    $col++;
+                }
+
+                $rowIndex = 2;
+                foreach ($result['rows'] as $r) {
+                    $sheet->setCellValue('A'.$rowIndex, $r['No']);
+                    $sheet->setCellValue('B'.$rowIndex, $r['Nama']);
+                    $col = 3;
+                    foreach ($result['dates'] as $d) {
+                        $cell = $r[$d] ?? ['count' => 0, 'present' => false, 'permit_type_id' => null];
+                        $val = $result['mode'] === 'check'
+                            ? ($cell['present'] ? '✔' : ($cell['permit_type_id'] ? 'ℹ' : '✖'))
+                            : ($cell['count'] ?? 0);
+                        $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col).$rowIndex, $val);
+                        $col++;
+                    }
+                    $rowIndex++;
+                }
+
+                foreach (range('A', \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($result['dates']) + 2)) as $colLetter) {
+                    $sheet->getColumnDimension($colLetter)->setAutoSize(true);
+                }
+                $sheet->freezePane('C2');
+                $sheet->getStyle('A1:'.\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($result['dates']) + 2).'1')->getFont()->setBold(true);
+
+                $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+                $filename = 'laporan-kehadiran-'.now()->format('Y-m-d-H-i-s').'.xlsx';
+                return response()->streamDownload(function () use ($writer) {
+                    $writer->save('php://output');
+                }, $filename, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+            } catch (\Throwable $e) {
+                return response()->json(['message' => 'Export Excel gagal', 'error' => $e->getMessage()], 500);
+            }
+        }
 
         return response()->json([
             'message' => 'OK',

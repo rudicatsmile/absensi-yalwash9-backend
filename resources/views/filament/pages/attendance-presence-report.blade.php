@@ -1,9 +1,11 @@
+<x-filament-panels::page>
+
 @push('styles')
     @vite('resources/css/app.css')
 @endpush
 
 <div class="max-w-7xl mx-auto space-y-6" role="main" aria-label="Laporan Kehadiran & Tidak Hadir">
-    <header class="bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl shadow-lg overflow-hidden">
+ <header class="bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl shadow-lg overflow-hidden">
         <div class="px-6 py-8 sm:px-8 md:px-10">
             <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2">Laporan Kehadiran & Tidak Hadir</h1>
             <p class="text-slate-300 text-sm sm:text-base">Pantau kehadiran dan ketidakhadiran pegawai berdasarkan rentang tanggal</p>
@@ -32,10 +34,34 @@
         $totals = $matrix['totals'] ?? ['present' => 0, 'absent' => 0, 'absent_by_permit' => 0, 'absent_unexcused' => 0];
     @endphp
 
-    <section class="bg-white rounded-xl shadow-sm border border-slate-200" aria-labelledby="report-heading">
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200" aria-labelledby="report-heading">
         <div class="px-6 py-4 border-b border-slate-200">
-            <h2 id="report-heading" class="text-lg font-semibold text-slate-900 mb-1">Matriks Kehadiran per Tanggal</h2>
-            <p class="text-sm text-slate-600">Periode: {{ \Carbon\Carbon::parse($this->start_date)->format('d-m-Y') }} s/d {{ \Carbon\Carbon::parse($this->end_date)->format('d-m-Y') }}</p>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h2 id="report-heading" class="text-lg font-semibold text-slate-900 mb-1">Matriks Kehadiran per Tanggal</h2>
+                    <p class="text-sm text-slate-600">Periode: {{ \Carbon\Carbon::parse($this->start_date)->format('d-m-Y') }} s/d {{ \Carbon\Carbon::parse($this->end_date)->format('d-m-Y') }}</p>
+                </div>
+                @php
+                    $queryString = http_build_query(array_filter([
+                        'start_date' => $this->start_date,
+                        'end_date' => $this->end_date,
+                        'departemen_id' => $this->departemen_id,
+                        'shift_id' => $this->shift_id,
+                        'status' => $this->status,
+                        'mode' => $this->mode,
+                    ]));
+                @endphp
+                <div class="flex items-center gap-2">
+                    <a id="exportExcelBtn" target="_blank" rel="noopener" href="{{ url('/api/reports/attendance-presence') }}?{{ $queryString }}&format=xlsx" class="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm" onclick="handleExportClick(this)">
+                        <span class="fi-icon fi-icon-heroicon-o-arrow-down-tray"></span>
+                        <span>Export Excel</span>
+                    </a>
+                    <a id="exportPdfBtn" target="_blank" rel="noopener" href="{{ url('/api/reports/attendance-presence') }}?{{ $queryString }}&format=pdf" class="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-sm" onclick="handleExportClick(this)">
+                        <span class="fi-icon fi-icon-heroicon-o-arrow-down-tray"></span>
+                        <span>Export PDF</span>
+                    </a>
+                </div>
+            </div>
             @if(($this->status ?? 'semua') === 'semua' && !empty($rows))
                 @php
                     $presentEmployees = 0; $excusedEmployees = 0; $absentEmployees = 0;
@@ -136,6 +162,21 @@
     @push('scripts')
         <script src="{{ asset('library/chart.js/dist/Chart.min.js') }}"></script>
         <script>
+            function handleExportClick(el){
+                try{
+                    el.dataset.label = el.textContent;
+                    el.classList.add('opacity-75');
+                    el.setAttribute('aria-busy','true');
+                    el.style.pointerEvents = 'none';
+                    el.querySelector('span:last-child').textContent = 'Mengunduh…';
+                    setTimeout(function(){
+                        el.classList.remove('opacity-75');
+                        el.removeAttribute('aria-busy');
+                        el.style.pointerEvents = '';
+                        el.querySelector('span:last-child').textContent = el.dataset.label;
+                    }, 1800);
+                }catch(e){}
+            }
             (function() {
                 var chartPresence = null;
                 var chartAbsence = null;
@@ -383,3 +424,5 @@
         </script>
     @endpush
 </div>
+</x-filament-panels::page>
+

@@ -107,15 +107,15 @@ class AttendancePresenceReport extends Page
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('Export CSV')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->url(fn() => $this->buildApiUrl('csv'))
-                ->openUrlInNewTab(),
-            Action::make('Export Excel')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('success')
-                ->url(fn() => $this->buildApiUrl('xlsx'))
-                ->openUrlInNewTab(),
+            // Action::make('Export CSV')
+            //     ->icon('heroicon-o-arrow-down-tray')
+            //     ->url(fn() => $this->buildApiUrl('csv'))
+            //     ->openUrlInNewTab(),
+            // Action::make('Export Excel')
+            //     ->icon('heroicon-o-arrow-down-tray')
+            //     ->color('success')
+            //     ->url(fn() => $this->buildApiUrl('xlsx'))
+            //     ->openUrlInNewTab(),
         ];
     }
 
