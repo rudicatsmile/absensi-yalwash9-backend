@@ -153,3 +153,4 @@ Route::delete('/meetings/{id}', [App\Http\Controllers\Api\MeetingController::cla
 Route::get('/meeting-types', [App\Http\Controllers\Api\MeetingTypeController::class, 'getMeetingTypes'])->middleware('auth:sanctum');
 Route::get('/dropdown/shift_kerjas', [DropdownController::class, 'shiftKerjas']);
 Route::get('/reports/attendance', [ReportController::class, 'attendanceReport']);
+Route::get('/reports/attendance-presence', [ReportController::class, 'attendancePresenceMatrix']);

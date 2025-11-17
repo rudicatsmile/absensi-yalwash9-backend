@@ -206,4 +206,46 @@ class ReportController extends Controller
             'data' => $rows,
         ], 200);
     }
+
+    public function attendancePresenceMatrix(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_date' => ['required', 'date_format:Y-m-d'],
+            'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+            'departemen_id' => ['nullable', 'integer', 'exists:departemens,id'],
+            'shift_id' => ['nullable', 'integer', 'exists:shift_kerjas,id'],
+            'status' => ['nullable', 'in:semua,Hadir,Tidak Hadir'],
+            'mode' => ['nullable', 'in:check,jumlah shift'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Parameter tidak valid',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        $departemenId = $request->input('departemen_id');
+        $shiftId = $request->input('shift_id');
+        $status = $request->input('status', 'semua');
+        $mode = $request->input('mode', 'check');
+
+        $service = app(\App\Services\Reports\AttendancePresenceService::class);
+        $result = $service->buildMatrix($startDate, $endDate, $departemenId, $shiftId, $status, $mode);
+
+        return response()->json([
+            'message' => 'OK',
+            'filters' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'departemen_id' => $departemenId,
+                'shift_id' => $shiftId,
+                'status' => $status,
+                'mode' => $mode,
+            ],
+            'data' => $result,
+        ], 200);
+    }
 }

@@ -45,5 +45,12 @@
                 </a>
             </li>
 
+            <li class="nav-item">
+                <a href="{{ url('/admin/attendance-presence-report') }}" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Laporan Kehadiran & Tidak Hadir</span>
+                </a>
+            </li>
+
     </aside>
 </div>
