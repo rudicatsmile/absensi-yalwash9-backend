@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\DropdownController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\UserPushTokenController;
 
 Route::get('/user', function (Request $request) {
     $user = $request->user();
@@ -63,6 +64,8 @@ Route::apiResource('/api-notes', App\Http\Controllers\Api\NoteController::class)
 
 // update fcm token
 Route::post('/update-fcm-token', [App\Http\Controllers\Api\AuthController::class, 'updateFcmToken'])->middleware('auth:sanctum');
+
+Route::put('/users/{id}/push-tokens', [UserPushTokenController::class, 'upsert'])->middleware('auth:sanctum');
 
 // get attendance
 Route::get('/api-attendances', [App\Http\Controllers\Api\AttendanceController::class, 'index'])->middleware('auth:sanctum');
