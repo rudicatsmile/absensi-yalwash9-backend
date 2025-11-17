@@ -65,7 +65,6 @@ Route::apiResource('/api-notes', App\Http\Controllers\Api\NoteController::class)
 // update fcm token
 Route::post('/update-fcm-token', [App\Http\Controllers\Api\AuthController::class, 'updateFcmToken'])->middleware('auth:sanctum');
 
-// store/update device FCM token per user (multi-device)
 Route::put('/users/{id}/push-tokens', [UserPushTokenController::class, 'upsert'])->middleware('auth:sanctum');
 
 // get attendance
