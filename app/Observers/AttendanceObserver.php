@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\UserPushToken;
 use App\Services\FcmService;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class AttendanceObserver
 {
@@ -14,7 +15,7 @@ class AttendanceObserver
         try {
             $tokens = UserPushToken::where('user_id', $attendance->user_id)->pluck('token')->all();
             $title = 'Absensi Masuk';
-            $body = 'Check-in tercatat pada ' . $attendance->date . ' ' . ($attendance->time_in ?? '');
+            $body = "Selamat bertugas.\nJangan lupa senyum dan berdoa.\nTercatat pada :\n" . Carbon::parse($attendance->date)->format('d-m-Y') . ' ' . ($attendance->time_in ?? '');
             $data = [
                 'type' => 'attendance_checkin',
                 'attendanceId' => (string) $attendance->id,
@@ -32,7 +33,7 @@ class AttendanceObserver
             if ($attendance->isDirty('time_out') && !empty($attendance->time_out)) {
                 $tokens = UserPushToken::where('user_id', $attendance->user_id)->pluck('token')->all();
                 $title = 'Absensi Keluar';
-                $body = 'Check-out tercatat pada ' . $attendance->date . ' ' . ($attendance->time_out ?? '');
+                $body = "Keluarga menunggu di rumah.\nTercatat pada :\n" . Carbon::parse($attendance->date)->format('d-m-Y') . ' ' . ($attendance->time_out ?? '');
                 $data = [
                     'type' => 'attendance_checkout',
                     'attendanceId' => (string) $attendance->id,
