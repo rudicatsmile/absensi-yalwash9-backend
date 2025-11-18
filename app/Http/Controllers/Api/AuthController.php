@@ -16,6 +16,8 @@ class AuthController extends Controller
         $loginData = $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+            'fcm_token' => 'nullable|string|min:10|max:4096',
+            'device_info' => 'nullable|string|max:255',
         ]);
 
         $user = User::where('email', $loginData['email'])->first();
@@ -67,6 +69,59 @@ class AuthController extends Controller
                 'name' => $user->jabatan->name,
             ] : null,
         ];
+
+        // Upsert FCM token into user_push_tokens table (multi-device support)
+        $fcmToken = $loginData['fcm_token'] ?? null;
+        if (!empty($fcmToken)) {
+            try {
+                // basic sanitization: remove spaces
+                $sanitized = preg_replace('/\s+/', '', $fcmToken);
+                // printable ASCII check
+                if (preg_match('/^[\x20-\x7E]+$/', $sanitized)) {
+                    $hash = hash('sha256', $sanitized);
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($user, $sanitized, $hash, $loginData) {
+                        $existing = \App\Models\UserPushToken::where('token_hash', $hash)->first();
+                        if (!$existing) {
+                            $created = \App\Models\UserPushToken::create([
+                                'user_id' => $user->id,
+                                'token' => $sanitized,
+                                'token_hash' => $hash,
+                                'device_info' => $loginData['device_info'] ?? null,
+                            ]);
+                            \Illuminate\Support\Facades\Log::info('FCM token stored on login', [
+                                'user_id' => $user->id,
+                                'token_prefix' => substr($sanitized, 0, 8),
+                                'id' => $created->id,
+                            ]);
+                        } else {
+                            if ($existing->user_id !== $user->id) {
+                                \Illuminate\Support\Facades\Log::warning('FCM token reassigned on login', [
+                                    'from_user_id' => $existing->user_id,
+                                    'to_user_id' => $user->id,
+                                    'token_prefix' => substr($sanitized, 0, 8),
+                                ]);
+                            }
+                            $existing->user_id = $user->id;
+                            $existing->device_info = $loginData['device_info'] ?? null;
+                            $existing->save();
+                            \Illuminate\Support\Facades\Log::info('FCM token updated on login', [
+                                'user_id' => $user->id,
+                                'token_prefix' => substr($sanitized, 0, 8),
+                            ]);
+                        }
+                    });
+                } else {
+                    \Illuminate\Support\Facades\Log::warning('Invalid FCM token format on login', [
+                        'user_id' => $user->id,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('FCM token upsert failed on login', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return response($response, 200);
     }
