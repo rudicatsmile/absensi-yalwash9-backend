@@ -17,6 +17,16 @@ class EditReligiousStudyEvent extends EditRecord
         ];
     }
 
+    public function getTitle(): string
+    {
+        return 'Ubah Data';
+    }
+
+    public function getHeading(): string
+    {
+        return 'Ubah Data';
+    }
+
     public function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');

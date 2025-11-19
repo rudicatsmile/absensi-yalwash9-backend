@@ -22,7 +22,10 @@ class ReligiousStudyEventResource extends Resource
 
     protected static UnitEnum|string|null $navigationGroup = 'Management Rapat';
 
-    protected static ?string $navigationLabel = 'Pengajian Malam Jumat';
+    protected static ?string $navigationLabel = 'Event Notifikasi';
+
+    protected static ?string $pluralLabel = 'Event Notifikasi';
+
 
     protected static ?int $navigationSort = 60;
 

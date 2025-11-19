@@ -6,9 +6,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification as FirebaseNotification;
-use Kreait\Firebase\Messaging\AndroidConfig;
 
-class FcmService
+class FcmServiceOld
 {
     public function sendToTokens(array $tokens, string $title, string $body, array $data = [], int $retry = 0): bool
     {
@@ -20,18 +19,10 @@ class FcmService
 
         try {
             $messaging = app('firebase.messaging');
-            $data['title'] = $title;
-            $data['body'] = $body;
+            $notification = FirebaseNotification::create($title, $body);
             $message = CloudMessage::new()
-                ->withData(array_map(fn($v) => is_scalar($v) ? (string) $v : json_encode($v), $data))
-                // ->withAndroidConfig(AndroidConfig::fromArray([
-                //     'priority' => 'high', // Paksa prioritas tinggi
-                //     'notification' => [
-                //         'channel_id' => 'notifikasi_transaksi', // Sesuaikan dengan ID di Flutter & Manifest
-                //         'click_action' => 'FLUTTER_NOTIFICATION_CLICK', // Agar saat diklik membuka app
-                //     ],
-                // ]))
-            ;
+                ->withNotification($notification)
+                ->withData(array_map(fn($v) => is_scalar($v) ? (string) $v : json_encode($v), $data));
             $report = $messaging->sendMulticast($message, $tokens);
             $success = $report->successes()->count();
             $fail = $report->failures()->count();
@@ -51,10 +42,12 @@ class FcmService
                 Log::error('FCM server key missing');
                 return false;
             }
-            $data['title'] = $title;
-            $data['body'] = $body;
             $payload = [
                 'registration_ids' => $tokens,
+                'notification' => [
+                    'title' => $title,
+                    'body' => $body,
+                ],
                 'data' => $data,
                 'android' => [
                     'priority' => 'high',

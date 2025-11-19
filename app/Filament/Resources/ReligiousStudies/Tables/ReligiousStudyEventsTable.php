@@ -29,17 +29,17 @@ class ReligiousStudyEventsTable
                 TextColumn::make('location')->label('Lokasi'),
                 BadgeColumn::make('cancelled')
                     ->label('Status')
-                    ->formatStateUsing(fn ($state) => $state ? 'Dibatalkan' : 'Aktif')
+                    ->formatStateUsing(fn($state) => $state ? 'Dibatalkan' : 'Aktif')
                     ->colors([
-                        'success' => fn ($state) => ! $state,
-                        'danger' => fn ($state) => $state,
+                        'success' => fn($state) => !$state,
+                        'danger' => fn($state) => $state,
                     ]),
                 BadgeColumn::make('notified')
                     ->label('Sudah Dikirim')
-                    ->formatStateUsing(fn ($state) => $state ? 'Ya' : 'Belum')
+                    ->formatStateUsing(fn($state) => $state ? 'Ya' : 'Belum')
                     ->colors([
-                        'success' => fn ($state) => $state,
-                        'warning' => fn ($state) => ! $state,
+                        'success' => fn($state) => $state,
+                        'warning' => fn($state) => !$state,
                     ]),
             ])
             ->filters([
@@ -57,7 +57,7 @@ class ReligiousStudyEventsTable
                         if ($record->cancelled) {
                             return;
                         }
-                        $title = $record->title ?: 'Pengajian Malam Jumat';
+                        $title = $record->title ?: 'Event Notifikasi';
                         $time = \Carbon\Carbon::parse($record->event_at)->format('d-m-Y H:i');
                         $body = 'Waktu: ' . $time . "\nLokasi: " . ($record->location ?? '-') . "\nTema: " . ($record->theme ?? '-') . "\nPemateri: " . ($record->speaker ?? '-');
                         $data = [

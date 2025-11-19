@@ -14,7 +14,7 @@ class ReligiousStudyEventForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Pengajian Malam Jumat')->schema([
+            Section::make('Event Notifikasi')->schema([
                 TextInput::make('title')->label('Judul')->required(),
                 DateTimePicker::make('event_at')->label('Waktu Pengajian')->required(),
                 DateTimePicker::make('notify_at')->label('Waktu Kirim Notifikasi')->required(),
