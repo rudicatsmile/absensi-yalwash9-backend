@@ -64,6 +64,7 @@ Route::apiResource('/api-notes', App\Http\Controllers\Api\NoteController::class)
 
 // update fcm token
 Route::post('/update-fcm-token', [App\Http\Controllers\Api\AuthController::class, 'updateFcmToken'])->middleware('auth:sanctum');
+Route::post('/events/{id}/confirm', [App\Http\Controllers\Api\EventController::class, 'confirmAttendance'])->middleware('auth:sanctum');
 
 Route::put('/users/{id}/push-tokens', [UserPushTokenController::class, 'upsert'])->middleware('auth:sanctum');
 
