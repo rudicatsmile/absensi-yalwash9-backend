@@ -101,40 +101,6 @@ Route::post('/permits', [App\Http\Controllers\Api\PermitController::class, 'stor
 Route::put('/permits/{id}', [App\Http\Controllers\Api\PermitController::class, 'update'])->middleware('auth:sanctum');
 Route::post('/permits/{id}/cancel', [App\Http\Controllers\Api\PermitController::class, 'cancel'])->middleware('auth:sanctum');
 
-/**
- * MEETING API
- * Autentikasi: auth:sanctum (wajib)
- * Struktur, validasi, dan respons identik dengan fitur Overtime.
- *
- * Endpoint:
- * - POST /start-meeting
- *   Memulai sesi meeting (mirip /start-overtime).
- *   Body (form-data / JSON):
- *     - notes (nullable|string|max:255)
- *     - reason (nullable|string|max:255)
- *     - start_document_path (nullable|file|mimes:pdf,jpg,jpeg,png|max:2048)
- *   Response: { message, data? }, 201 bila sukses.
- *
- * - POST /end-meeting
- *   Mengakhiri sesi meeting (mirip /end-overtime).
- *   Body:
- *     - id (required|exists:meetings,id)
- *     - reason (nullable|string|max:255) - akan menimpa alasan sebelumnya jika ada
- *   Response: { message, data }, 200 bila sukses.
- *
- * - GET /meeting-status
- *   Mengecek status meeting hari ini (mirip /overtime-status).
- *   Response:
- *     - status: not_started|in_progress|completed
- *     - message: string penjelas
- *     - data: meeting atau null
- *
- * - GET /meeting
- *   Mengambil daftar meeting milik user login (mirip /overtimes).
- *   Query opsional:
- *     - month (YYYY-MM), filter berdasarkan kolom 'date'
- *   Response: { message, data }
- */
 Route::post('/start-meeting', [App\Http\Controllers\Api\MeetingController::class, 'startMeeting'])->middleware('auth:sanctum');
 Route::post('/end-meeting', [App\Http\Controllers\Api\MeetingController::class, 'endMeeting'])->middleware('auth:sanctum');
 Route::get('/meeting-status', [App\Http\Controllers\Api\MeetingController::class, 'checkTodayMeetingStatus'])->middleware('auth:sanctum');
@@ -144,16 +110,6 @@ Route::get('/meetings/{id}', [App\Http\Controllers\Api\MeetingController::class,
 Route::put('/meetings/{id}', [App\Http\Controllers\Api\MeetingController::class, 'update'])->middleware('auth:sanctum');
 Route::delete('/meetings/{id}', [App\Http\Controllers\Api\MeetingController::class, 'destroy'])->middleware('auth:sanctum');
 
-/**
- * Dropdown: Meeting Types
- * Method: GET /meeting-types
- * Autentikasi: auth:sanctum
- * Output: semua kolom dari tabel meeting_types
- * Error handling:
- * - 404 jika data tidak ditemukan (kosong)
- * - 500 jika terjadi kesalahan server
- * Response: { message, data } atau { message, error }
- */
 Route::get('/meeting-types', [App\Http\Controllers\Api\MeetingTypeController::class, 'getMeetingTypes'])->middleware('auth:sanctum');
 Route::get('/dropdown/shift_kerjas', [DropdownController::class, 'shiftKerjas']);
 Route::get('/reports/attendance', [ReportController::class, 'attendanceReport']);
