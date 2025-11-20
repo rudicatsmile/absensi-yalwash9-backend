@@ -94,15 +94,20 @@ class PermitForm
                             ])
                             ->default('pending')
                             ->disabled(fn ($record) => $record === null)
-                            ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
+                            // ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
+                            ->visible(fn () => in_array(auth()->user()->role, ['admin','manager','kepala_lembaga','kepala_sub_bagian'], true)),
+
+
 
                         Textarea::make('notes')
                             ->label('Admin Notes')
                             ->rows(2)
                             ->columnSpanFull()
-                            ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
+                            // ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
+                             ->visible(fn () => in_array(auth()->user()->role, ['admin','manager','kepala_lembaga','kepala_sub_bagian'], true)),
                     ])
-                    ->visible(fn ($record) => $record !== null && (auth()->user()->role === 'admin' || auth()->user()->role === 'manager')),
+                    // ->visible(fn ($record) => $record !== null && (auth()->user()->role === 'admin' || auth()->user()->role === 'manager')),
+                     ->visible(fn ($record) => $record !== null && (in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id)))),
             ]);
     }
 

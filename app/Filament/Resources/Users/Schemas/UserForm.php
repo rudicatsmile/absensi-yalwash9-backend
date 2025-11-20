@@ -37,7 +37,9 @@ class UserForm
                     ->options([
                         'admin' => 'Admin',
                         'manager' => 'Manager',
-                        'employee' => 'Employee',
+                        'kepala_lembaga' => 'Kepala Lembaga',
+                        'kepala_sub_bagian' => 'Kepala Sub Bagian',
+                        'employee' => 'Pegawai',
                     ])
                     ->required()
                     ->default('employee'),
