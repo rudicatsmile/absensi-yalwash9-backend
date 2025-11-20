@@ -19,6 +19,8 @@ class AttendanceObserver
             $data = [
                 'type' => 'attendance_checkin',
                 'attendanceId' => (string) $attendance->id,
+                'time' => Carbon::parse($attendance->date)->format('d-m-Y') . ' ' . ($attendance->time_in ?? ''),
+                'location' => (string) ($attendance->location ?? ''),
                 'status' => $attendance->status ?? 'on_time',
             ];
             (new FcmService())->sendToTokens($tokens, $title, $body, $data, 1);
@@ -37,6 +39,8 @@ class AttendanceObserver
                 $data = [
                     'type' => 'attendance_checkout',
                     'attendanceId' => (string) $attendance->id,
+                    'time' => Carbon::parse($attendance->date)->format('d-m-Y') . ' ' . $attendance->time_out ?? '',
+                    'location' => (string) ($attendance->companyLocation->name ?? ''),
                     'status' => $attendance->status ?? 'on_time',
                 ];
                 (new FcmService())->sendToTokens($tokens, $title, $body, $data, 1);

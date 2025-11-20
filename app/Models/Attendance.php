@@ -31,8 +31,8 @@ class Attendance extends Model
     {
         return [
             // 'date' => 'date',
-            'time_in' => 'datetime:H:i:s',
-            'time_out' => 'datetime:H:i:s',
+            //'time_in' => 'datetime:H:i:s',
+            //'time_out' => 'datetime:H:i:s',
             'is_weekend' => 'boolean',
             'is_holiday' => 'boolean',
             'holiday_work' => 'boolean',
