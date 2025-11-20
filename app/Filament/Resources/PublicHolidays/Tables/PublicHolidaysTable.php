@@ -141,7 +141,7 @@ class PublicHolidaysTable
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'hr'),
+                        ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
 
                     Action::make('set_official')
                         ->label('Mark as Official')
@@ -156,7 +156,7 @@ class PublicHolidaysTable
                                 ->success()
                                 ->send();
                         })
-                        ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'hr'),
+                        ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
 
                     Action::make('unset_official')
                         ->label('Unmark Official')
@@ -171,7 +171,7 @@ class PublicHolidaysTable
                                 ->success()
                                 ->send();
                         })
-                        ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'hr'),
+                        ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
                 ]),
             ])
             ->defaultSort('date', 'desc')

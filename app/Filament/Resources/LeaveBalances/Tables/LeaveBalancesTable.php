@@ -151,7 +151,7 @@ class LeaveBalancesTable
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'hr'),
+                        ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
                 ]),
             ])
             ->defaultSort('employee.name', 'asc')

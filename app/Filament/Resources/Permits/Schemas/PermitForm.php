@@ -94,15 +94,15 @@ class PermitForm
                             ])
                             ->default('pending')
                             ->disabled(fn ($record) => $record === null)
-                            ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'hr'),
+                            ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
 
                         Textarea::make('notes')
                             ->label('Admin Notes')
                             ->rows(2)
                             ->columnSpanFull()
-                            ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'hr'),
+                            ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
                     ])
-                    ->visible(fn ($record) => $record !== null && (auth()->user()->role === 'admin' || auth()->user()->role === 'hr')),
+                    ->visible(fn ($record) => $record !== null && (auth()->user()->role === 'admin' || auth()->user()->role === 'manager')),
             ]);
     }
 
