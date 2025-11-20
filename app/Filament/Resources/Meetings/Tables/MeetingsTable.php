@@ -132,7 +132,7 @@ class MeetingsTable
 
                 SelectFilter::make('employee_id')
                     ->label('Karyawan')
-                    ->relationship('employee', 'name')
+                    ->options(\App\Models\User::query()->orderBy('name')->pluck('name', 'id')->toArray())
                     ->searchable(),
 
                 Filter::make('date_range')

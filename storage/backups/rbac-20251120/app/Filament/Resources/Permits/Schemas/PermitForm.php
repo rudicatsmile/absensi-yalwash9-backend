@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\Leaves\Schemas;
+namespace App\Filament\Resources\Permits\Schemas;
 
 use App\Support\WorkdayCalculator;
 use Carbon\Carbon;
@@ -11,27 +11,27 @@ use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
-class LeaveForm
+class PermitForm
 {
     public static function configure(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Section::make('Leave Information')
+                Section::make('Permit Information')
                     ->schema([
                         Select::make('employee_id')
                             ->label('Employee')
                             ->required()
                             ->searchable()
-                            ->options(\App\Models\User::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                            ->relationship('employee', 'name')
                             ->preload()
                             ->default(auth()->id()),
 
-                        Select::make('leave_type_id')
-                            ->label('Leave Type')
+                        Select::make('permit_type_id')
+                            ->label('Permit Type')
                             ->required()
                             ->searchable()
-                            ->relationship('leaveType', 'name')
+                            ->relationship('permitType', 'name')
                             ->preload(),
 
                         DatePicker::make('start_date')
@@ -62,20 +62,14 @@ class LeaveForm
                             ->label('Reason')
                             ->rows(3)
                             ->columnSpanFull(),
+
+                        Textarea::make('notes')
+                            ->label('Notes')
+                            ->required()
+                            ->rows(2)
+                            ->columnSpanFull(),
                     ])
                     ->columns(2),
-
-                // Section::make('Supporting Document')
-                //     ->schema([
-                //         FileUpload::make('attachment_url')
-                //             ->label('Attachment')
-                //             ->image()
-                //             ->directory('leave-attachments')
-                //             ->visibility('private')
-                //             ->downloadable()
-                //             ->openable()
-                //             ->columnSpanFull(),
-                //     ]),
 
                 Section::make('Approval Status')
                     ->schema([
@@ -87,17 +81,16 @@ class LeaveForm
                                 'rejected' => 'Rejected',
                             ])
                             ->default('pending')
-                            ->disabled(fn($record) => $record === null)
-                            ->visible(condition: fn() => in_array(auth()->user()->role, ['admin', 'manager', 'kepala_lembaga', 'kepala_sub_bagian'], true)),
+                            ->disabled(fn ($record) => $record === null)
+                            ->visible(fn () => in_array(auth()->user()->role, ['admin','manager','kepala_lembaga','kepala_sub_bagian'], true)),
 
                         Textarea::make('notes')
-                            ->label('Notes')
+                            ->label('Admin Notes')
                             ->rows(2)
                             ->columnSpanFull()
-                            ->visible(fn() => in_array(auth()->user()->role, ['admin', 'manager', 'kepala_lembaga', 'kepala_sub_bagian'], true)),
+                            ->visible(fn () => in_array(auth()->user()->role, ['admin','manager','kepala_lembaga','kepala_sub_bagian'], true)),
                     ])
-                    // ->visible(fn($record) => $record !== null && (auth()->user()->role === 'admin' || auth()->user()->role === 'manager')),
-                    ->visible(fn($record) => $record !== null && (in_array(auth()->user()->role, ['admin', 'manager', 'kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id)))),
+                    ->visible(fn ($record) => $record !== null && (in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id)))),
             ]);
     }
 

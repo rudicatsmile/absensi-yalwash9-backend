@@ -23,7 +23,7 @@ class PermitForm
                             ->label('Employee')
                             ->required()
                             ->searchable()
-                            ->relationship('employee', 'name')
+                            ->options(\App\Models\User::query()->orderBy('name')->pluck('name', 'id')->toArray())
                             ->preload()
                             ->default(auth()->id()),
 

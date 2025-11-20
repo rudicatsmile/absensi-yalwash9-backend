@@ -19,7 +19,7 @@ class LeaveBalanceForm
                             ->label('Employee')
                             ->required()
                             ->searchable()
-                            ->relationship('employee', 'name')
+                            ->options(\App\Models\User::query()->orderBy('name')->pluck('name', 'id')->toArray())
                             ->preload()
                             ->disabled(fn ($record) => $record !== null),
 

@@ -23,7 +23,7 @@ class LeaveForm
                             ->label('Employee')
                             ->required()
                             ->searchable()
-                            ->options(\App\Models\User::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                            ->relationship('employee', 'name')
                             ->preload()
                             ->default(auth()->id()),
 
@@ -65,18 +65,6 @@ class LeaveForm
                     ])
                     ->columns(2),
 
-                // Section::make('Supporting Document')
-                //     ->schema([
-                //         FileUpload::make('attachment_url')
-                //             ->label('Attachment')
-                //             ->image()
-                //             ->directory('leave-attachments')
-                //             ->visibility('private')
-                //             ->downloadable()
-                //             ->openable()
-                //             ->columnSpanFull(),
-                //     ]),
-
                 Section::make('Approval Status')
                     ->schema([
                         Select::make('status')
@@ -96,7 +84,6 @@ class LeaveForm
                             ->columnSpanFull()
                             ->visible(fn() => in_array(auth()->user()->role, ['admin', 'manager', 'kepala_lembaga', 'kepala_sub_bagian'], true)),
                     ])
-                    // ->visible(fn($record) => $record !== null && (auth()->user()->role === 'admin' || auth()->user()->role === 'manager')),
                     ->visible(fn($record) => $record !== null && (in_array(auth()->user()->role, ['admin', 'manager', 'kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id)))),
             ]);
     }

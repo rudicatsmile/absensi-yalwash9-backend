@@ -22,7 +22,6 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Gate;
 
 class LeavesTable
 {
@@ -93,7 +92,7 @@ class LeavesTable
             ->filters([
                 SelectFilter::make('employee_id')
                     ->label('Employee')
-                    ->options(\App\Models\User::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                    ->relationship('employee', 'name')
                     ->searchable(),
 
                 SelectFilter::make('leave_type_id')
@@ -141,22 +140,14 @@ class LeavesTable
                     ->label('Approve')
                     ->color('success')
                     ->icon('heroicon-o-check')
-                    ->visible(fn (Leave $record) => $record->status === 'pending' && (in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id))))
+                    ->visible(fn (Leave $record) => $record->status === 'pending' && (auth()->user()->role === 'admin' || auth()->user()->role === 'hr'))
                     ->requiresConfirmation()
                     ->modalHeading('Approve Leave Request')
                     ->modalDescription(fn ($record) => 'Employee: '.$record->employee->name."\nLeave Type: ".$record->leaveType->name."\nDates: ".$record->start_date->format('d/m/Y').' - '.$record->end_date->format('d/m/Y'))
                     ->action(function (Leave $record) {
-                        if (!Gate::allows('approve-high', $record) && !Gate::allows('approve-subsection', $record)) {
-                            \Filament\Notifications\Notification::make()
-                                ->title('You are not authorized to approve this leave')
-                                ->danger()
-                                ->send();
-                            return;
-                        }
                         try {
                             DB::beginTransaction();
 
-                            // Recalculate total days to ensure consistency with holidays
                             $totalDays = WorkdayCalculator::countWorkdaysExcludingHolidays(
                                 Carbon::parse($record->start_date),
                                 Carbon::parse($record->end_date)
@@ -168,7 +159,6 @@ class LeavesTable
                                 ->where('year', $year)
                                 ->first();
 
-                            // Check if leave balance exists
                             if (! $leaveBalance) {
                                 DB::rollBack();
 
@@ -181,7 +171,6 @@ class LeavesTable
                                 return;
                             }
 
-                            // Check if remaining days is sufficient
                             if ($leaveBalance->remaining_days < $totalDays) {
                                 DB::rollBack();
 
@@ -228,7 +217,7 @@ class LeavesTable
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-circle')
-                    ->visible(fn (Leave $record) => $record->status === 'pending' && (in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id))))
+                    ->visible(fn (Leave $record) => $record->status === 'pending' && (auth()->user()->role === 'admin' || auth()->user()->role === 'hr'))
                     ->form([
                         Textarea::make('notes')
                             ->label('Rejection Notes')
@@ -238,13 +227,6 @@ class LeavesTable
                     ->modalHeading('Reject Leave Request')
                     ->modalDescription(fn ($record) => 'Employee: '.$record->employee->name."\nLeave Type: ".$record->leaveType->name)
                     ->action(function (Leave $record, array $data) {
-                        if (!Gate::allows('approve-high', $record) && !Gate::allows('approve-subsection', $record)) {
-                            \Filament\Notifications\Notification::make()
-                                ->title('You are not authorized to reject this leave')
-                                ->danger()
-                                ->send();
-                            return;
-                        }
                         $record->update([
                             'status' => 'rejected',
                             'approved_by' => auth()->id(),
@@ -261,7 +243,7 @@ class LeavesTable
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true)),
+                        ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'hr'),
                 ]),
             ])
             ->defaultSort('created_at', 'desc')

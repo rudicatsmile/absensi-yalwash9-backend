@@ -21,6 +21,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Gate;
 
 class PermitsTable
 {
@@ -91,7 +92,7 @@ class PermitsTable
             ->filters([
                 SelectFilter::make('employee_id')
                     ->label('Employee')
-                    ->relationship('employee', 'name')
+                    ->options(\App\Models\User::query()->orderBy('name')->pluck('name', 'id')->toArray())
                     ->searchable(),
 
                 SelectFilter::make('permit_type_id')
@@ -139,11 +140,18 @@ class PermitsTable
                     ->label('Approve')
                     ->color('success')
                     ->icon('heroicon-o-check')
-                    ->visible(fn (Permit $record) => $record->status === 'pending' && (auth()->user()->role === 'admin' || auth()->user()->role === 'hr'))
+                    ->visible(fn (Permit $record) => $record->status === 'pending' && (in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id))))
                     ->requiresConfirmation()
                     ->modalHeading('Approve Permit Request')
                     ->modalDescription(fn ($record) => 'Employee: '.$record->employee->name."\nPermit Type: ".$record->permitType->name."\nDates: ".$record->start_date->format('d/m/Y').' - '.$record->end_date->format('d/m/Y'))
                     ->action(function (Permit $record) {
+                        if (!Gate::allows('approve-high', $record) && !Gate::allows('approve-subsection', $record)) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('You are not authorized to approve this permit')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
                         try {
                             DB::beginTransaction();
 
@@ -181,7 +189,7 @@ class PermitsTable
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-circle')
-                    ->visible(fn (Permit $record) => $record->status === 'pending' && (auth()->user()->role === 'admin' || auth()->user()->role === 'hr'))
+                    ->visible(fn (Permit $record) => $record->status === 'pending' && (in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id))))
                     ->form([
                         Textarea::make('notes')
                             ->label('Rejection Notes')
@@ -191,6 +199,13 @@ class PermitsTable
                     ->modalHeading('Reject Permit Request')
                     ->modalDescription(fn ($record) => 'Employee: '.$record->employee->name."\nPermit Type: ".$record->permitType->name)
                     ->action(function (Permit $record, array $data) {
+                        if (!Gate::allows('approve-high', $record) && !Gate::allows('approve-subsection', $record)) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('You are not authorized to reject this permit')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
                         $record->update([
                             'status' => 'rejected',
                             'approved_by' => auth()->id(),
@@ -207,7 +222,7 @@ class PermitsTable
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'hr'),
+                        ->visible(fn () => in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true)),
                 ]),
             ])
             ->defaultSort('created_at', 'desc')

@@ -22,8 +22,7 @@ class MeetingForm
                     ->schema([
                         Select::make('employee_id')
                             ->label('Karyawan')
-                            ->relationship('employee', 'name')
-                            ->options(User::all()->pluck('name', 'id'))
+                            ->options(\App\Models\User::query()->orderBy('name')->pluck('name', 'id')->toArray())
                             ->searchable()
                             ->preload()
                             ->disabled(fn ($operation) => $operation === 'edit')
