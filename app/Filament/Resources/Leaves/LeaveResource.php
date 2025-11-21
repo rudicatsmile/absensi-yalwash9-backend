@@ -55,4 +55,15 @@ class LeaveResource extends Resource
             'edit' => EditLeave::route('/{record}/edit'),
         ];
     }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (auth()->check() && auth()->user()->role === 'employee') {
+            return $query->where('employee_id', auth()->id());
+        }
+
+        return $query;
+    }
 }

@@ -53,4 +53,14 @@ class PermitTypeResource extends Resource
             'edit' => EditPermitType::route('/{record}/edit'),
         ];
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
 }

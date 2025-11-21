@@ -175,4 +175,9 @@ class AttendanceReport extends Page
             'holiday_work_count' => $attendances->where('holiday_work', true)->count(),
         ];
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
 }

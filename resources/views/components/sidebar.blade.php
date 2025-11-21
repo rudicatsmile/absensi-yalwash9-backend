@@ -1,7 +1,7 @@
 <div class="main-sidebar sidebar-style-2">
     <aside id="sidebar-wrapper">
         <div class="sidebar-brand">
-            <a href="index.html">BAHRI HR</a>
+            <a href="index.html">SMART ATTENDANCE</a>
         </div>
         <div class="sidebar-brand sidebar-brand-sm">
             <a href="index.html">St</a>
@@ -13,37 +13,47 @@
 
             </li>
 
+            @if(auth()->check() && auth()->user()->role !== 'employee')
             <li class="nav-item ">
                 <a href="{{ route('users.index') }}" class="nav-link "><i class="fas fa-columns"></i>
                     <span>Users</span></a>
             </li>
+            @endif
 
+            @if(auth()->check() && auth()->user()->role !== 'employee')
             <li class="nav-item">
                 <a href="{{ route('companies.show', 1) }}" class="nav-link">
                     <i class="fas fa-columns"></i>
                     <span>Company</span>
                 </a>
             </li>
+            @endif
+            @if(auth()->check() && auth()->user()->role !== 'employee')
             <li class="nav-item">
                 <a href="{{ route('attendances.index') }}" class="nav-link">
                     <i class="fas fa-columns"></i>
                     <span>Attendances</span>
                 </a>
             </li>
+            @endif
 
+            @if(auth()->check() && auth()->user()->role !== 'employee')
             <li class="nav-item">
                 <a href="{{ route('permissions.index') }}" class="nav-link">
                     <i class="fas fa-columns"></i>
                     <span>Permission</span>
                 </a>
             </li>
+            @endif
 
+            @if(auth()->check() && auth()->user()->role !== 'employee')
             <li class="nav-item">
                 <a href="{{ route('qr_absens.index') }}" class="nav-link">
                     <i class="fas fa-columns"></i>
                     <span>QR Absen</span>
                 </a>
             </li>
+            @endif
 
             {{-- <li class="nav-item">
                 <a href="{{ url('/admin/attendance-presence-report') }}" class="nav-link">

@@ -63,4 +63,14 @@ class MeetingResource extends Resource
     {
         return false;
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
 }

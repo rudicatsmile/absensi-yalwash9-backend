@@ -63,4 +63,14 @@ class CompanyResource extends Resource
 
         return static::getUrl('index');
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
 }

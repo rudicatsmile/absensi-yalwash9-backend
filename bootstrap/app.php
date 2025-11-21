@@ -12,7 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        $middleware->alias([
+            'employee.restrict' => \App\Http\Middleware\EmployeeAccessMiddleware::class,
+        ]);
+
+        $middleware->appendToGroup('api', [
+            'employee.restrict',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

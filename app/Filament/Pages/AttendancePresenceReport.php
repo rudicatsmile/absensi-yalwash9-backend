@@ -160,4 +160,9 @@ class AttendancePresenceReport extends Page
             'matrix' => $result,
         ];
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
 }

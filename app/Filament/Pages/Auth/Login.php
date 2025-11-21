@@ -107,12 +107,18 @@ class Login extends BaseLogin
             }
         }
 
-        if (($user instanceof FilamentUser) && !in_array($user->role, ['admin', 'manager'], true)) {
-            $this->fireFailedEvent($authGuard, $user, $credentials);
+        if ($user instanceof FilamentUser) {
+            if (!in_array($user->role, ['admin', 'manager', 'kepala_lembaga', 'kepala_sub_bagian', 'employee'], true)) {
+                \Filament\Notifications\Notification::make()
+                    ->title('Akses Ditolak')
+                    ->body('Anda tidak memiliki akses ke dashboard.')
+                    ->danger()
+                    ->persistent()
+                    ->send();
 
-            throw ValidationException::withMessages([
-                'email' => 'Hanya admin atau manager yang dapat mengakses dashboard.',
-            ]);
+                $this->fireFailedEvent($authGuard, $user, $credentials);
+                return null;
+            }
         }
 
         if (

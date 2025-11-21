@@ -53,4 +53,14 @@ class LeaveTypeResource extends Resource
             'edit' => EditLeaveType::route('/{record}/edit'),
         ];
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
 }

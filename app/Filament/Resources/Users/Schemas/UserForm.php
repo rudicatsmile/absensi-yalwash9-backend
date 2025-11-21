@@ -36,8 +36,8 @@ class UserForm
                     ->label('Tipe user')
                     ->options([
                         'admin' => 'Admin',
-                        'manager' => 'Manager',
-                        'kepala_lembaga' => 'Kepala Lembaga',
+                        'kepala_lembaga' => 'Pimpinan Yayasan',
+                        'manager' => 'Kepala Bagian / Kepala Sekolah',
                         'kepala_sub_bagian' => 'Kepala Sub Bagian',
                         'employee' => 'Pegawai',
                     ])

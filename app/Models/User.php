@@ -159,6 +159,6 @@ class User extends Authenticatable implements FilamentUser
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return in_array($this->role, ['admin', 'manager', 'kepala_lembaga', 'kepala_sub_bagian'], true);
+        return in_array($this->role, ['admin', 'manager', 'kepala_lembaga', 'kepala_sub_bagian', 'employee'], true);
     }
 }
