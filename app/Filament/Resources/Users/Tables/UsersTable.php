@@ -128,11 +128,13 @@ class UsersTable
             ])
             ->recordActions([
                 ViewAction::make(),
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn ($record) => !auth()->check() || auth()->user()->role !== 'employee' ? true : auth()->id() === ($record->id ?? null)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => auth()->check() && auth()->user()->role !== 'employee'),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');

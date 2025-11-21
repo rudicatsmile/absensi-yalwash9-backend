@@ -14,11 +14,22 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'employee.restrict' => \App\Http\Middleware\EmployeeAccessMiddleware::class,
+            'employee.admin.block' => \App\Http\Middleware\EmployeeAdminSectionMiddleware::class,
         ]);
 
         $middleware->appendToGroup('api', [
             'employee.restrict',
         ]);
+
+        $middleware->appendToGroup('web', [
+            'employee.admin.block',
+        ]);
+
+        if (method_exists($middleware, 'appendToGroup')) {
+            $middleware->appendToGroup('filament', [
+                'employee.admin.block',
+            ]);
+        }
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

@@ -13,6 +13,14 @@ class ViewCompany extends ViewRecord
 
     public function mount(int|string|null $record = null): void
     {
+        if (auth()->check() && auth()->user()->role === 'employee') {
+            $req = request();
+            if ($req->expectsJson()) {
+                response(['message' => 'Akses ditolak: Menu ini khusus admin'], 403)->send();
+                exit;
+            }
+            abort(403, 'Akses ditolak: Menu ini khusus admin');
+        }
         // Jika tidak ada record yang diberikan, ambil company pertama
         if (! $record) {
             $company = Company::first();

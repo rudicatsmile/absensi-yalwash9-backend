@@ -51,4 +51,14 @@ class ShiftKerjaResource extends Resource
             'edit' => EditShiftKerja::route('/{record}/edit'),
         ];
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->check() && auth()->user()->role !== 'employee';
+    }
 }

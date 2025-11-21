@@ -137,7 +137,8 @@ class LaporanAbsensi extends Page implements HasTable
                 SelectFilter::make('user_id')
                     ->label('Karyawan')
                     ->options(User::all()->pluck('name', 'id'))
-                    ->searchable(),
+                    ->searchable()
+                    ->visible(fn () => !auth()->check() || auth()->user()->role !== 'employee'),
 
                 Filter::make('today')
                     ->label('Hari Ini')
@@ -204,10 +205,16 @@ class LaporanAbsensi extends Page implements HasTable
 
     protected function getTableQuery(): Builder
     {
-        return Attendance::query()
+        $query = Attendance::query()
             ->with(['user:id,name,position,department'])
             ->select('id', 'user_id', 'date', 'time_in', 'time_out', 'latlon_in', 'latlon_out', 'created_at', 'updated_at')
             ->orderBy('date', 'desc');
+
+        if (auth()->check() && auth()->user()->role === 'employee') {
+            $query->where('user_id', auth()->id());
+        }
+
+        return $query;
     }
 
     public function exportPdf()

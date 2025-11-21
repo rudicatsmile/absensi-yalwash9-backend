@@ -141,6 +141,7 @@ class AttendancesTable
                     ->options(\App\Models\Departemen::query()->orderBy('name')->pluck('name', 'id')->toArray())
                     ->searchable()
                     ->preload()
+                    ->visible(fn () => !auth()->check() || auth()->user()->role !== 'employee')
                     ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
                         $value = $data['value'] ?? null;
                         if (!is_numeric($value)) {
@@ -178,6 +179,7 @@ class AttendancesTable
                     })
                     ->searchable()
                     ->preload()
+                    ->visible(fn () => !auth()->check() || auth()->user()->role !== 'employee')
                     ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
                         $value = $data['value'] ?? null;
                         if (!is_numeric($value)) {
@@ -353,7 +355,8 @@ class AttendancesTable
                         }, 'attendances-' . now()->format('Y-m-d') . '.csv');
                     }),
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => auth()->check() && auth()->user()->role !== 'employee'),
                 ]),
             ])
             ->defaultSort('date', 'desc');

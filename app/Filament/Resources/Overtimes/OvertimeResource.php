@@ -59,18 +59,24 @@ class OvertimeResource extends Resource
     }
 
     // can create false
-    public static function canCreate(): bool
-    {
-        return false;
-    }
-
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role !== 'employee';
+        return auth()->check();
     }
 
     public static function canViewAny(): bool
     {
-        return auth()->check() && auth()->user()->role !== 'employee';
+        return auth()->check();
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (auth()->check() && auth()->user()->role === 'employee') {
+            return $query->where('user_id', auth()->id());
+        }
+
+        return $query;
     }
 }

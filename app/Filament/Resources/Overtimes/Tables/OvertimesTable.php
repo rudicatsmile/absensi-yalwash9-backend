@@ -179,7 +179,8 @@ class OvertimesTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => auth()->check() && auth()->user()->role !== 'employee'),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');
