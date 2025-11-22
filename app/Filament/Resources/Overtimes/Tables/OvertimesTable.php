@@ -165,7 +165,8 @@ class OvertimesTable
                 ViewAction::make()
                     ->label('Detail'),
                 EditAction::make()
-                    ->label('Edit'),
+                    ->label('Edit')
+                    ->visible(fn () => !auth()->check() || ! in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)),
             ])
             ->headerActions([
                 \Filament\Actions\Action::make('export_pdf')
@@ -180,7 +181,7 @@ class OvertimesTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => auth()->check() && auth()->user()->role !== 'employee'),
+                        ->visible(fn () => auth()->check() && ! in_array(auth()->user()->role, ['employee','manager','kepala_sub_bagian'], true)),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');

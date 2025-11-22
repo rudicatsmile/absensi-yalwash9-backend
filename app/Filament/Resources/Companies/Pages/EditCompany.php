@@ -12,7 +12,7 @@ class EditCompany extends EditRecord
 
     public function mount(int|string $record): void
     {
-        if (auth()->check() && auth()->user()->role === 'employee') {
+        if (auth()->check() && in_array(auth()->user()->role, ['employee','manager','kepala_sub_bagian'], true)) {
             $req = request();
             if ($req->expectsJson()) {
                 response(['message' => 'Akses ditolak: Menu ini khusus admin'], 403)->send();

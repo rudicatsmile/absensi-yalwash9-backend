@@ -68,12 +68,28 @@ class UserResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $query = parent::getEloquentQuery();
+        try {
+            $query = parent::getEloquentQuery();
 
-        if (auth()->check() && auth()->user()->role === 'employee') {
-            return $query->where('id', auth()->id());
+            if (auth()->check()) {
+                $role = auth()->user()->role;
+                if ($role === 'employee') {
+                    return $query->where('id', auth()->id());
+                }
+                if (in_array($role, ['manager','kepala_sub_bagian'], true)) {
+                    $dept = auth()->user()->departemen_id;
+                    if (! $dept) {
+                        \Log::warning('audit:user.query.error', ['actor' => auth()->id(), 'reason' => 'departemen_id null']);
+                        return $query->whereRaw('1 = 0');
+                    }
+                    return $query->where('departemen_id', $dept);
+                }
+            }
+
+            return $query;
+        } catch (\Throwable $e) {
+            \Log::error('audit:user.query.exception', ['message' => $e->getMessage()]);
+            return parent::getEloquentQuery()->whereRaw('1 = 0');
         }
-
-        return $query;
     }
 }

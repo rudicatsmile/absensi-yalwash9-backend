@@ -134,13 +134,13 @@ class PermitsTable
 
                 EditAction::make()
                     ->label('Edit')
-                    ->visible(fn (Permit $record) => $record->status === 'pending'),
+                    ->visible(fn (Permit $record) => $record->status === 'pending' && ! in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)),
 
                 Action::make('approve')
                     ->label('Approve')
                     ->color('success')
                     ->icon('heroicon-o-check')
-                    ->visible(fn (Permit $record) => $record->status === 'pending' && (in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id))))
+                    ->visible(fn (Permit $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin','kepala_lembaga'], true))
                     ->requiresConfirmation()
                     ->modalHeading('Approve Permit Request')
                     ->modalDescription(fn ($record) => 'Employee: '.$record->employee->name."\nPermit Type: ".$record->permitType->name."\nDates: ".$record->start_date->format('d/m/Y').' - '.$record->end_date->format('d/m/Y'))
@@ -189,7 +189,7 @@ class PermitsTable
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-circle')
-                    ->visible(fn (Permit $record) => $record->status === 'pending' && (in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id))))
+                    ->visible(fn (Permit $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin','kepala_lembaga'], true))
                     ->form([
                         Textarea::make('notes')
                             ->label('Rejection Notes')
@@ -222,7 +222,7 @@ class PermitsTable
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true)),
+                        ->visible(fn () => auth()->check() && in_array(auth()->user()->role, ['admin','kepala_lembaga'], true)),
                 ]),
             ])
             ->defaultSort('created_at', 'desc')

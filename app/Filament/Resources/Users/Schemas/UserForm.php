@@ -6,6 +6,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class UserForm
@@ -17,17 +18,24 @@ class UserForm
             ->components([
                 TextInput::make('name')
                     ->required()
+                    ->unique(ignoreRecord: true)
+                    ->validationAttribute('Username')
+                    ->live(debounce: 500)
                     ->maxLength(255),
                 TextInput::make('email')
                     ->label('Email')
                     ->email()
                     ->required()
                     ->unique(ignoreRecord: true)
+                    ->validationAttribute('Email')
+                    ->live(debounce: 500)
                     ->maxLength(255),
                 TextInput::make('password')
                     ->password()
                     ->required(fn(string $context): bool => $context === 'create')
                     ->dehydrated(fn($state) => filled($state))
+                    ->validationAttribute('Password')
+                    ->live(onBlur: true)
                     ->minLength(8),
                 TextInput::make('phone')
                     ->tel()
@@ -52,11 +60,39 @@ class UserForm
                     ->helperText('Pilih 1 jabatan untuk karyawan'),
                 Select::make('departemen_id')
                     ->label('Unit Kerja')
-                    ->relationship('departemen', 'name')
+                    ->options(function (Get $get) {
+                        $base = \App\Models\Departemen::query()->orderBy('name');
+                        if (auth()->check()) {
+                            $role = auth()->user()->role;
+                            if (in_array($role, ['manager','kepala_sub_bagian'], true)) {
+                                $base->whereKey(auth()->user()->departemen_id);
+                            } elseif ($role === 'employee') {
+                                $recordDept = $get('departemen_id') ?? (auth()->user()->departemen_id ?? null);
+                                if ($recordDept) {
+                                    $base->whereKey($recordDept);
+                                } else {
+                                    $base->whereRaw('1 = 0');
+                                }
+                            }
+                        }
+                        return $base->pluck('name', 'id')->toArray();
+                    })
                     ->required()
                     ->searchable()
                     ->preload()
-                    ->helperText('Pilih 1 departemen untuk karyawan'),
+                    ->native(false)
+                    ->default(fn () => (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) ? auth()->user()->departemen_id : null)
+                    ->disabled(condition: fn () => auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true) && ! is_null(auth()->user()->departemen_id))
+                    ->dehydrated(true)
+                    ->helperText(function (Get $get) {
+                        if (auth()->check() && auth()->user()->role === 'employee') {
+                            $recordDept = $get('departemen_id') ?? (auth()->user()->departemen_id ?? null);
+                            if (is_null($recordDept)) {
+                                return 'Tidak ada departemen terkait pada profil Anda. Hubungi admin untuk memperbarui profil.';
+                            }
+                        }
+                        return 'Pilih 1 departemen untuk karyawan';
+                    }),
                 // Select::make('shift_kerja_id')
                 //     ->label('Shift Kerja')
                 //     ->relationship('shiftKerja', 'name')

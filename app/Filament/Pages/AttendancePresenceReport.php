@@ -34,7 +34,7 @@ class AttendancePresenceReport extends Page
     {
         $this->start_date = now()->toDateString();
         $this->end_date = now()->toDateString();
-        $this->departemen_id = null;
+        $this->departemen_id = (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) ? auth()->user()->departemen_id : null;
         $this->shift_id = null;
         $this->status = 'semua';
         $this->mode = 'check';
@@ -63,7 +63,13 @@ class AttendancePresenceReport extends Page
 
             Select::make('departemen_id')
                 ->label('Departemen')
-                ->options(fn() => [null => 'Semua Departemen'] + Departemen::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                ->options(function () {
+                    $base = Departemen::query()->orderBy('name');
+                    if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+                        $base->whereKey(auth()->user()->departemen_id);
+                    }
+                    return [null => 'Semua Departemen'] + $base->pluck('name', 'id')->toArray();
+                })
                 ->searchable()
                 ->native(false)
                 ->default($this->departemen_id)

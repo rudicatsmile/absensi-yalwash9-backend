@@ -39,7 +39,7 @@ class AttendanceReport extends Page
         $this->start_date = now()->toDateString();
         $this->end_date = now()->toDateString();
         $this->shift_id = null;
-        $this->departemen_id = null;
+        $this->departemen_id = (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) ? auth()->user()->departemen_id : null;
     }
 
     public function form(\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
@@ -80,7 +80,11 @@ class AttendanceReport extends Page
             Select::make('departemen_id')
                 ->label('Departemen')
                 ->options(function () {
-                    $departemens = Departemen::query()->orderBy('name')->pluck('name', 'id')->toArray();
+                    $base = Departemen::query()->orderBy('name');
+                    if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+                        $base->whereKey(auth()->user()->departemen_id);
+                    }
+                    $departemens = $base->pluck('name', 'id')->toArray();
                     return [null => 'Semua Departemen'] + $departemens;
                 })
                 ->searchable()
@@ -99,14 +103,16 @@ class AttendanceReport extends Page
                 ->color('primary')
                 ->requiresConfirmation(false)
                 ->url(fn() => $this->buildExportUrl('csv'))
-                ->openUrlInNewTab(),
+                ->openUrlInNewTab()
+                ->visible(fn () => !auth()->check() || ! in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)),
 
             Action::make('Export Excel')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->requiresConfirmation(false)
                 ->url(fn() => $this->buildExportUrl('xlsx'))
-                ->openUrlInNewTab(),
+                ->openUrlInNewTab()
+                ->visible(fn () => !auth()->check() || ! in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)),
         ];
     }
 
@@ -150,7 +156,7 @@ class AttendanceReport extends Page
         $start = $this->start_date ?? now()->startOfMonth()->toDateString();
         $end = $this->end_date ?? now()->endOfMonth()->toDateString();
 
-        return Attendance::query()
+        $query = Attendance::query()
             ->whereBetween('date', [$start, $end])
             ->when($this->shift_id, fn(Builder $q) => $q->where('shift_id', $this->shift_id))
             ->when(
@@ -158,6 +164,12 @@ class AttendanceReport extends Page
                 fn(Builder $q) =>
                 $q->whereHas('user', fn(Builder $uq) => $uq->where('departemen_id', $this->departemen_id))
             );
+
+        if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+            $query->whereHas('user', fn(Builder $uq) => $uq->where('departemen_id', auth()->user()->departemen_id));
+        }
+
+        return $query;
     }
 
     protected function summarize(Collection $attendances): array

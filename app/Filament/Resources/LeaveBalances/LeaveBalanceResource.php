@@ -66,8 +66,16 @@ class LeaveBalanceResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        if (auth()->check() && auth()->user()->role === 'employee') {
-            return $query->where('employee_id', auth()->id());
+        if (auth()->check()) {
+            $role = auth()->user()->role;
+            if ($role === 'employee') {
+                return $query->where('employee_id', auth()->id());
+            }
+            if (in_array($role, ['manager','kepala_sub_bagian'], true)) {
+                return $query->whereHas('employee', function ($q) {
+                    $q->where('departemen_id', auth()->user()->departemen_id);
+                });
+            }
         }
 
         return $query;

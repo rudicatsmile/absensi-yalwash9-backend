@@ -138,10 +138,16 @@ class AttendancesTable
                 // Filter Departemen
                 \Filament\Tables\Filters\SelectFilter::make('departemen_id')
                     ->label('Departemen')
-                    ->options(\App\Models\Departemen::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                    ->options(function () {
+                        $base = \App\Models\Departemen::query()->orderBy('name');
+                        if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+                            $base->whereKey(auth()->user()->departemen_id);
+                        }
+                        return $base->pluck('name', 'id')->toArray();
+                    })
                     ->searchable()
                     ->preload()
-                    ->visible(fn () => !auth()->check() || auth()->user()->role !== 'employee')
+                    ->visible(fn () => !auth()->check() || ! in_array(auth()->user()->role, ['employee'], true))
                     ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
                         $value = $data['value'] ?? null;
                         if (!is_numeric($value)) {
@@ -163,12 +169,14 @@ class AttendancesTable
                     ->label('User')
                     ->options(function (): array {
                         $departemenIds = self::getSelectedDepartemenIds();
-
-                        $query = \App\Models\User::query()
-                            ->select('id', 'name', 'nip')
-                            ->when(!empty($departemenIds), function ($q) use ($departemenIds) {
+                        $query = \App\Models\User::query()->select('id', 'name', 'nip');
+                        if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+                            $query->where('departemen_id', auth()->user()->departemen_id);
+                        } else {
+                            $query->when(!empty($departemenIds), function ($q) use ($departemenIds) {
                                 $q->whereIn('departemen_id', $departemenIds);
                             });
+                        }
 
                         return $query->orderBy('name')
                             ->get()
@@ -179,7 +187,7 @@ class AttendancesTable
                     })
                     ->searchable()
                     ->preload()
-                    ->visible(fn () => !auth()->check() || auth()->user()->role !== 'employee')
+                    ->visible(fn () => !auth()->check() || ! in_array(auth()->user()->role, ['employee'], true))
                     ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
                         $value = $data['value'] ?? null;
                         if (!is_numeric($value)) {

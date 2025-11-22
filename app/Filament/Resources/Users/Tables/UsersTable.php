@@ -40,7 +40,7 @@ class UsersTable
                     ->html()
                     ->searchable(['name', 'email'])
                     ->sortable(),
-              
+
                 // TextColumn::make('role')
                 //     ->badge()
                 //     ->color(fn (string $state): string => match ($state) {
@@ -108,15 +108,20 @@ class UsersTable
                 SelectFilter::make('role')
                     ->options([
                         'admin' => 'Admin',
-                        'manager' => 'Manager',
+                        'kepala_lembaga' => 'Pimpinan Yayasan',
+                        'manager' => 'Kepala Bagian / Kepala Sekolah',
+                        'kepala_sub_bagian' => 'Kepala Sub Bagian',
                         'employee' => 'Employee',
                     ]),
                 SelectFilter::make('departemen_id')
                     ->label('Departemen')
-                    ->options(\App\Models\Departemen::query()
-                        ->orderBy('name')
-                        ->pluck('name', 'id')
-                        ->toArray())
+                    ->options(function () {
+                        $base = \App\Models\Departemen::query()->orderBy('name');
+                        if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
+                            $base->whereKey(auth()->user()->departemen_id);
+                        }
+                        return $base->pluck('name', 'id')->toArray();
+                    })
                     ->preload()
                     ->searchable()
                     ->query(function (Builder $query, array $data) {
@@ -129,12 +134,27 @@ class UsersTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make()
-                    ->visible(fn ($record) => !auth()->check() || auth()->user()->role !== 'employee' ? true : auth()->id() === ($record->id ?? null)),
+                    ->visible(function ($record) {
+                        if (!auth()->check())
+                            return true;
+                        $role = auth()->user()->role;
+                        if ($role === 'employee') {
+                            return auth()->id() === ($record->id ?? null);
+                        }
+                        if (in_array($role, ['manager', 'kepala_sub_bagian'], true)) {
+                            return (auth()->user()->departemen_id ?? null) === ($record->departemen_id ?? null);
+                        }
+                        return true;
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => auth()->check() && auth()->user()->role !== 'employee'),
+                        ->visible(function () {
+                            if (!auth()->check())
+                                return false;
+                            return !in_array(auth()->user()->role, ['employee'], true);
+                        }),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');

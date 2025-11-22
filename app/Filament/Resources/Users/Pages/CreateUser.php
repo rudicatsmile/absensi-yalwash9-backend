@@ -12,6 +12,26 @@ class CreateUser extends CreateRecord
 {
     protected static string $resource = UserResource::class;
 
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+            $userDept = auth()->user()->departemen_id;
+            if (is_null($userDept)) {
+                \Log::info('audit:user.create.blocked', ['actor' => auth()->id(), 'reason' => 'actor departemen null']);
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'departemen_id' => 'Profil Anda belum memiliki departemen. Hubungi admin untuk mengatur departemen Anda.',
+                ]);
+            }
+            if (($data['departemen_id'] ?? null) !== $userDept) {
+                \Log::info('audit:user.create.blocked', ['actor' => auth()->id(), 'target_dept' => $data['departemen_id'] ?? null, 'actor_dept' => $userDept]);
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'departemen_id' => 'Departemen untuk user baru harus sama dengan departemen Anda',
+                ]);
+            }
+        }
+        return $data;
+    }
+
     public function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
@@ -64,9 +84,23 @@ class CreateUser extends CreateRecord
                 ->submit('save')
                 ->color('primary')
                 ->action(function () {
-                    $this->save();
-                    $this->redirect($this->getResource()::getUrl('index'));
+                    try {
+                        $this->save();
+                        Notification::make()
+                            ->title('User berhasil dibuat')
+                            ->success()
+                            ->send();
+                        $this->redirect($this->getResource()::getUrl('index'));
+                    } catch (\Throwable $e) {
+                        \Log::error('audit:user.create.exception', ['message' => $e->getMessage()]);
+                        Notification::make()
+                            ->title('Gagal membuat user')
+                            ->body('Periksa kembali input Anda. Jika masalah berlanjut, hubungi admin.')
+                            ->danger()
+                            ->send();
+                    }
                 }),
         ];
     }
 }
+use Filament\Notifications\Notification;

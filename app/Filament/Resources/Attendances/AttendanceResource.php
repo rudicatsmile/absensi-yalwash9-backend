@@ -71,8 +71,16 @@ class AttendanceResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        if (auth()->check() && auth()->user()->role === 'employee') {
-            return $query->where('user_id', auth()->id());
+        if (auth()->check()) {
+            $role = auth()->user()->role;
+            if ($role === 'employee') {
+                return $query->where('user_id', auth()->id());
+            }
+            if (in_array($role, ['manager','kepala_sub_bagian'], true)) {
+                return $query->whereHas('user', function ($q) {
+                    $q->where('departemen_id', auth()->user()->departemen_id);
+                });
+            }
         }
 
         return $query;

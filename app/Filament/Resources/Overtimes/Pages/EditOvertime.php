@@ -17,8 +17,21 @@ class EditOvertime extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->visible(fn () => auth()->check() && ! in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)),
         ];
+    }
+
+    public function mount(int|string $record): void
+    {
+        if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+            if (request()->expectsJson()) {
+                response(['message' => 'Akses ditolak: Over Shift hanya dapat dibaca'], 403)->send();
+                exit;
+            }
+            abort(403, 'Akses ditolak: Over Shift hanya dapat dibaca');
+        }
+        parent::mount($record);
     }
 
     protected function mutateFormDataBeforeSave(array $data): array

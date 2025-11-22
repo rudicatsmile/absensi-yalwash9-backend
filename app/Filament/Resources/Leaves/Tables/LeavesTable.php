@@ -135,13 +135,13 @@ class LeavesTable
 
                 EditAction::make()
                     ->label('Edit')
-                    ->visible(fn (Leave $record) => $record->status === 'pending'),
+                    ->visible(fn (Leave $record) => $record->status === 'pending' && ! in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)),
 
                 Action::make('approve')
                     ->label('Approve')
                     ->color('success')
                     ->icon('heroicon-o-check')
-                    ->visible(fn (Leave $record) => $record->status === 'pending' && (in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id))))
+                    ->visible(fn (Leave $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin','kepala_lembaga'], true))
                     ->requiresConfirmation()
                     ->modalHeading('Approve Leave Request')
                     ->modalDescription(fn ($record) => 'Employee: '.$record->employee->name."\nLeave Type: ".$record->leaveType->name."\nDates: ".$record->start_date->format('d/m/Y').' - '.$record->end_date->format('d/m/Y'))
@@ -228,7 +228,7 @@ class LeavesTable
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-circle')
-                    ->visible(fn (Leave $record) => $record->status === 'pending' && (in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id))))
+                    ->visible(fn (Leave $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin','kepala_lembaga'], true))
                     ->form([
                         Textarea::make('notes')
                             ->label('Rejection Notes')

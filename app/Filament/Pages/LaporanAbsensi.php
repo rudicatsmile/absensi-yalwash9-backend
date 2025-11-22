@@ -214,6 +214,10 @@ class LaporanAbsensi extends Page implements HasTable
             $query->where('user_id', auth()->id());
         }
 
+        if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+            $query->whereHas('user', fn(Builder $uq) => $uq->where('departemen_id', auth()->user()->departemen_id));
+        }
+
         return $query;
     }
 

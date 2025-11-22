@@ -12,7 +12,7 @@ class EmployeeAdminSectionMiddleware
     {
         $user = $request->user();
 
-        if (! $user || $user->role !== 'employee') {
+        if (! $user || ! in_array($user->role, ['employee','manager','kepala_sub_bagian'], true)) {
             return $next($request);
         }
 
@@ -27,19 +27,25 @@ class EmployeeAdminSectionMiddleware
             'shift-kerjas',
             'departemens',
             'jabatans',
-            'meeting-types',
-            'religious-study-events',
             'company-settings',
             'public-holidays',
             'weekends',
         ];
 
+        if ($user->role === 'employee') {
+            $blockedSlugs = array_merge($blockedSlugs, [
+                'meeting-types',
+                'religious-study-events',
+            ]);
+        }
+
         $segments = explode('/', $path);
         $resourceSlug = $segments[1] ?? null;
 
         if ($resourceSlug && in_array($resourceSlug, $blockedSlugs, true)) {
+            \Log::info('audit:admin.menu.block', ['actor' => $user->id, 'slug' => $resourceSlug]);
             return $request->expectsJson()
-                ? response(['message' => 'Akses ditolak: Menu ini khusus admin'], 403)
+                ? response()->json(['message' => 'Akses ditolak: Menu ini khusus admin'], 403)
                 : response('Akses ditolak: Menu ini khusus admin', 403);
         }
 
