@@ -23,7 +23,8 @@ class ReligiousStudyEventsApiTest extends TestCase
             'cancelled' => 1,
         ]);
 
-        $res = $this->get('/api/religious-study-events');
+        $token = self::makeJwt(1);
+        $res = $this->withHeaders(['Authorization' => 'Bearer ' . $token])->get('/api/religious-study-events');
         $res->assertStatus(200);
         $json = $res->json();
         $this->assertArrayHasKey('data', $json);
@@ -44,12 +45,23 @@ class ReligiousStudyEventsApiTest extends TestCase
             'cancelled' => 0,
         ]);
 
-        $res = $this->get('/api/religious-study-events?cancelled=1');
+        $token = self::makeJwt(1);
+        $res = $this->withHeaders(['Authorization' => 'Bearer ' . $token])->get('/api/religious-study-events?cancelled=1');
         $res->assertStatus(200);
         $json = $res->json();
         $this->assertArrayHasKey('data', $json);
         $this->assertCount(1, $json['data']);
         $this->assertEquals('Kajian C', $json['data'][0]['title']);
     }
+    private static function makeJwt(int $sub): string
+    {
+        $header = ['alg' => 'HS256', 'typ' => 'JWT'];
+        $payload = ['sub' => $sub, 'exp' => time() + 3600];
+        $headB64 = rtrim(strtr(base64_encode(json_encode($header)), '+/', '-_'), '=');
+        $payB64 = rtrim(strtr(base64_encode(json_encode($payload)), '+/', '-_'), '=');
+        $secret = config('app.key');
+        $sig = hash_hmac('sha256', $headB64 . '.' . $payB64, $secret, true);
+        $sigB64 = rtrim(strtr(base64_encode($sig), '+/', '-_'), '=');
+        return $headB64 . '.' . $payB64 . '.' . $sigB64;
+    }
 }
-

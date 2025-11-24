@@ -117,7 +117,7 @@ Route::get('/reports/attendance', [ReportController::class, 'attendanceReport'])
 Route::get('/reports/attendance-presence', [ReportController::class, 'attendancePresenceMatrix']);
 
 // Public endpoint for listing religious study events
-Route::get('/religious-study-events', [ReligiousStudyEventController::class, 'index'])
-    ->middleware(['auth:sanctum', 'throttle:60,1']);
-Route::post('/religious-study-events/detail', [ReligiousStudyEventController::class, 'detail'])
-    ->middleware(['auth:sanctum', 'throttle:60,1']);
+Route::get('/religious-study-events', [ReligiousStudyEventController::class, 'index']);
+//->middleware(['auth:sanctum', 'throttle:60,1']);
+Route::post('/religious-study-events/detail', [ReligiousStudyEventController::class, 'detail']);
+//->middleware(['auth:sanctum', 'throttle:60,1']);

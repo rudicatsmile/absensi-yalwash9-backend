@@ -11,19 +11,21 @@ class ReligiousStudyEventDetailApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function actingAsSanctumUser(): User
+    private static function makeJwt(int $sub): string
     {
-        $user = User::factory()->create([
-            'email' => 'detail@example.com',
-            'password' => bcrypt('password'),
-        ]);
-        $this->actingAs($user, 'sanctum');
-        return $user;
+        $header = ['alg' => 'HS256', 'typ' => 'JWT'];
+        $payload = ['sub' => $sub, 'exp' => time() + 3600];
+        $headB64 = rtrim(strtr(base64_encode(json_encode($header)), '+/', '-_'), '=');
+        $payB64 = rtrim(strtr(base64_encode(json_encode($payload)), '+/', '-_'), '=');
+        $secret = config('app.key');
+        $sig = hash_hmac('sha256', $headB64 . '.' . $payB64, $secret, true);
+        $sigB64 = rtrim(strtr(base64_encode($sig), '+/', '-_'), '=');
+        return $headB64 . '.' . $payB64 . '.' . $sigB64;
     }
 
     public function test_valid_request_returns_detail(): void
     {
-        $this->actingAsSanctumUser();
+        $token = self::makeJwt(1);
         $event = ReligiousStudyEvent::create([
             'title' => 'Kajian Detail',
             'event_at' => now()->addDay(),
@@ -36,7 +38,7 @@ class ReligiousStudyEventDetailApiTest extends TestCase
             'notified' => false,
         ]);
 
-        $res = $this->postJson('/api/religious-study-events/detail', ['id' => $event->id]);
+        $res = $this->withHeaders(['Authorization' => 'Bearer ' . $token])->postJson('/api/religious-study-events/detail', ['id' => $event->id]);
         $res->assertStatus(200);
         $json = $res->json();
         $this->assertEquals('success', $json['status']);
@@ -45,23 +47,22 @@ class ReligiousStudyEventDetailApiTest extends TestCase
 
     public function test_missing_id_returns_400(): void
     {
-        $this->actingAsSanctumUser();
-        $res = $this->postJson('/api/religious-study-events/detail', []);
+        $token = self::makeJwt(1);
+        $res = $this->withHeaders(['Authorization' => 'Bearer ' . $token])->postJson('/api/religious-study-events/detail', []);
         $res->assertStatus(400);
     }
 
     public function test_invalid_id_returns_400(): void
     {
-        $this->actingAsSanctumUser();
-        $res = $this->postJson('/api/religious-study-events/detail', ['id' => -5]);
+        $token = self::makeJwt(1);
+        $res = $this->withHeaders(['Authorization' => 'Bearer ' . $token])->postJson('/api/religious-study-events/detail', ['id' => -5]);
         $res->assertStatus(400);
     }
 
     public function test_not_found_returns_404(): void
     {
-        $this->actingAsSanctumUser();
-        $res = $this->postJson('/api/religious-study-events/detail', ['id' => 999999]);
+        $token = self::makeJwt(1);
+        $res = $this->withHeaders(['Authorization' => 'Bearer ' . $token])->postJson('/api/religious-study-events/detail', ['id' => 999999]);
         $res->assertStatus(404);
     }
 }
-

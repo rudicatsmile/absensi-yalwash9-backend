@@ -12,17 +12,61 @@ class ReligiousStudyEventController extends Controller
     public function index(Request $request)
     {
         try {
-            $cancelledRaw = $request->query('cancelled', 0);
-            $cancelled = is_numeric($cancelledRaw) ? (int) $cancelledRaw : 0;
+            $validated = $request->validate([
+                'cancelled' => ['nullable'],
+                'start_date' => ['nullable', 'date_format:Y-m-d'],
+                'end_date' => ['nullable', 'date_format:Y-m-d'],
+                'page' => ['nullable', 'integer', 'min:1'],
+                'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+                'sort' => ['nullable', 'in:asc,desc'],
+                'search' => ['nullable', 'string', 'max:255'],
+            ]);
 
-            $events = ReligiousStudyEvent::query()
-                ->where('cancelled', $cancelled)
-                ->orderBy('event_at', 'asc')
-                ->get();
+            $cancelledRaw = $request->query('cancelled', 'false');
+            $cancelledBool = filter_var($cancelledRaw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            if ($cancelledBool === null) {
+                $cancelledBool = false;
+            }
+
+            $page = (int) ($validated['page'] ?? 1);
+            $limit = (int) ($validated['limit'] ?? 10);
+            $sort = $validated['sort'] ?? 'asc';
+            $search = $validated['search'] ?? null;
+            $startDate = $validated['start_date'] ?? null;
+            $endDate = $validated['end_date'] ?? null;
+
+            $query = ReligiousStudyEvent::query()
+                ->where('cancelled', $cancelledBool ? 1 : 0);
+
+            if ($search) {
+                $query->where('title', 'like', '%' . $search . '%');
+            }
+            if ($startDate) {
+                $query->whereDate('event_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->whereDate('event_at', '<=', $endDate);
+            }
+
+            $query->orderBy('event_at', $sort === 'desc' ? 'desc' : 'asc');
+
+            $paginator = $query->paginate($limit, ['*'], 'page', $page);
 
             return response()->json([
-                'data' => $events,
-                'params' => ['cancelled' => $cancelled],
+                'data' => $paginator->items(),
+                'meta' => [
+                    'total' => $paginator->total(),
+                    'per_page' => $paginator->perPage(),
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                ],
+                'params' => [
+                    'cancelled' => $cancelledBool,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'sort' => $sort,
+                    'search' => $search,
+                ],
                 'message' => 'Daftar event kajian',
             ], 200);
         } catch (\Throwable $e) {
