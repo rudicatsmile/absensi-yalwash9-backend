@@ -32,29 +32,73 @@ class UserForm
                     ->maxLength(255),
                 TextInput::make('password')
                     ->password()
+                    ->revealable()
+                    ->suffixIcon('heroicon-o-eye')
                     ->required(fn(string $context): bool => $context === 'create')
                     ->dehydrated(fn($state) => filled($state))
                     ->validationAttribute('Password')
                     ->live(onBlur: true)
-                    ->minLength(8),
+                    ->afterStateHydrated(fn($component) => $component->state(''))
+                    ->autocomplete('new-password')
+                    ->minLength(8)
+                    ->placeholder('Kosongkan jika tidak ingin mengubah')
+                    ->rules(function (Get $get) {
+                        $val = $get('password');
+                        if (!filled($val)) {
+                            return ['nullable'];
+                        }
+                        return ['min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/'];
+                    })
+                    ->helperText(function (\Filament\Schemas\Components\Utilities\Get $get) {
+                        $val = $get('password');
+                        if (!filled($val)) {
+                            return 'Password tidak akan diubah jika dibiarkan kosong';
+                        }
+                        return 'Gunakan kombinasi huruf besar, huruf kecil, dan angka (min 8 karakter)';
+                    }),
                 TextInput::make('phone')
                     ->tel()
+                    ->live(debounce: 500)
+                    ->rules(['nullable', 'regex:/^\+?[0-9\-\s]{7,20}$/'])
+                    ->validationAttribute('Nomor telepon')
                     ->maxLength(20),
                 Select::make('role')
                     ->label('Tipe user')
-                    ->options([
-                        'admin' => 'Admin',
-                        'kepala_lembaga' => 'Pimpinan Yayasan',
-                        'manager' => 'Kepala Bagian / Kepala Sekolah',
-                        'kepala_sub_bagian' => 'Kepala Sub Bagian',
-                        'employee' => 'Pegawai',
-                    ])
+                    ->options(function () {
+                        if (auth()->check()) {
+                            $role = auth()->user()->role;
+                            if ($role === 'manager') {
+                                return [
+                                    'kepala_sub_bagian' => 'Kepala Sub Bagian',
+                                    'employee' => 'Pegawai',
+                                ];
+                            }
+                            if ($role === 'kepala_sub_bagian') {
+                                return [
+                                    'employee' => 'Pegawai',
+                                ];
+                            }
+                        }
+                        return [
+                            'admin' => 'Admin',
+                            'kepala_lembaga' => 'Pimpinan Yayasan',
+                            'manager' => 'Kepala Bagian / Kepala Sekolah',
+                            'kepala_sub_bagian' => 'Kepala Sub Bagian',
+                            'employee' => 'Pegawai',
+                        ];
+                    })
                     ->required()
+                    ->disabled(fn(string $context) => $context === 'edit' && auth()->check() && auth()->user()->role === 'employee')
                     ->default('employee'),
                 Select::make('jabatan_id')
                     ->label('Jabatan')
-                    ->relationship('jabatan', 'name')
+                    ->relationship('jabatan', 'name', modifyQueryUsing: function ($query) {
+                        if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
+                            $query->whereIn('name', ['Kasubag', 'Pegawai']);
+                        }
+                    })
                     ->required()
+                    ->disabled(fn(string $context) => $context === 'edit' && auth()->check() && auth()->user()->role === 'employee')
                     ->searchable()
                     ->preload()
                     ->helperText('Pilih 1 jabatan untuk karyawan'),
@@ -64,7 +108,7 @@ class UserForm
                         $base = \App\Models\Departemen::query()->orderBy('name');
                         if (auth()->check()) {
                             $role = auth()->user()->role;
-                            if (in_array($role, ['manager','kepala_sub_bagian'], true)) {
+                            if (in_array($role, ['manager', 'kepala_sub_bagian'], true)) {
                                 $base->whereKey(auth()->user()->departemen_id);
                             } elseif ($role === 'employee') {
                                 $recordDept = $get('departemen_id') ?? (auth()->user()->departemen_id ?? null);
@@ -81,8 +125,8 @@ class UserForm
                     ->searchable()
                     ->preload()
                     ->native(false)
-                    ->default(fn () => (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) ? auth()->user()->departemen_id : null)
-                    ->disabled(condition: fn () => auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true) && ! is_null(auth()->user()->departemen_id))
+                    ->default(fn() => (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) ? auth()->user()->departemen_id : null)
+                    ->disabled(condition: fn() => (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true) && !is_null(auth()->user()->departemen_id)) || (auth()->check() && auth()->user()->role === 'employee'))
                     ->dehydrated(true)
                     ->helperText(function (Get $get) {
                         if (auth()->check() && auth()->user()->role === 'employee') {
@@ -105,6 +149,7 @@ class UserForm
                     ->label('Shift Kerja')
                     ->relationship('shiftKerjas', 'name') // sinkron ke pivot
                     ->multiple()
+                    ->disabled(fn(string $context) => $context === 'edit' && auth()->check() && in_array(auth()->user()->role, ['employee', 'kepala_sub_bagian'], true))
                     ->searchable()
                     ->preload()
                     ->placeholder('Pilih satu atau lebih shift kerja')
@@ -128,6 +173,7 @@ class UserForm
                     ->label('Lokasi')
                     ->relationship('companyLocations', 'name') // sinkron ke pivot
                     ->multiple()
+                    ->disabled(fn(string $context) => $context === 'edit' && auth()->check() && in_array(auth()->user()->role, ['employee', 'kepala_sub_bagian'], true))
                     ->searchable()
                     ->preload()
                     ->placeholder('Pilih satu atau lebih lokasi')

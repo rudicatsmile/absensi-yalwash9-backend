@@ -7,14 +7,28 @@ use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
+// Notification import is appended at end of file to avoid duplicate alias
 
 class CreateUser extends CreateRecord
 {
     protected static string $resource = UserResource::class;
 
+    public function mount(): void
+    {
+        if (!auth()->check() || !in_array(auth()->user()->role, ['admin', 'kepala_lembaga', 'manager'], true)) {
+            \Log::info('audit:user.create.forbidden', ['actor' => auth()->id()]);
+            if (request()->expectsJson()) {
+                response(['message' => 'Akses ditolak: Anda tidak berhak menambah pegawai'], 403)->send();
+                exit;
+            }
+            abort(403, 'Akses ditolak: Anda tidak berhak menambah pegawai');
+        }
+        parent::mount();
+    }
+
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+        if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
             $userDept = auth()->user()->departemen_id;
             if (is_null($userDept)) {
                 \Log::info('audit:user.create.blocked', ['actor' => auth()->id(), 'reason' => 'actor departemen null']);
@@ -27,6 +41,24 @@ class CreateUser extends CreateRecord
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'departemen_id' => 'Departemen untuk user baru harus sama dengan departemen Anda',
                 ]);
+            }
+            $allowedRoles = auth()->user()->role === 'manager' ? ['kepala_sub_bagian', 'employee'] : ['employee'];
+            if (!in_array(($data['role'] ?? 'employee'), $allowedRoles, true)) {
+                \Log::info('audit:user.create.blocked', ['actor' => auth()->id(), 'reason' => 'role not allowed', 'role' => $data['role'] ?? null]);
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'role' => 'Tipe User tidak diizinkan untuk peran Anda',
+                ]);
+            }
+
+            if (!empty($data['jabatan_id'])) {
+                $jabatan = \App\Models\Jabatan::find($data['jabatan_id']);
+                $allowedJabatan = ['Kasubag', 'Pegawai'];
+                if (!$jabatan || !in_array($jabatan->name, $allowedJabatan, true)) {
+                    \Log::info('audit:user.create.blocked', ['actor' => auth()->id(), 'reason' => 'jabatan not allowed', 'jabatan_id' => $data['jabatan_id'] ?? null]);
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'jabatan_id' => 'Jabatan tidak diizinkan untuk peran Anda',
+                    ]);
+                }
             }
         }
         return $data;
@@ -86,6 +118,7 @@ class CreateUser extends CreateRecord
                 ->action(function () {
                     try {
                         $this->save();
+                        \Log::info('audit:user.create.success', ['actor' => auth()->id(), 'record' => $this->record->id ?? null]);
                         Notification::make()
                             ->title('User berhasil dibuat')
                             ->success()

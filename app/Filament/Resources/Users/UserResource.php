@@ -66,6 +66,12 @@ class UserResource extends Resource
         return auth()->check();
     }
 
+    public static function canCreate(): bool
+    {
+        if (! auth()->check()) return false;
+        return in_array(auth()->user()->role, ['admin','kepala_lembaga','manager'], true);
+    }
+
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         try {

@@ -13,7 +13,7 @@ class ListUsers extends ListRecords
     protected function getHeaderActions(): array
     {
         $actions = [];
-        if (!auth()->check() || auth()->user()->role !== 'employee') {
+        if (auth()->check() && in_array(auth()->user()->role, ['admin', 'kepala_lembaga', 'manager'], true)) {
             $actions[] = CreateAction::make();
         }
         return $actions;

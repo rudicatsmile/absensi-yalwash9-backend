@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\DropdownController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\UserPushTokenController;
+use App\Http\Controllers\Api\ReligiousStudyEventController;
 
 Route::get('/user', function (Request $request) {
     $user = $request->user();
@@ -114,3 +115,6 @@ Route::get('/meeting-types', [App\Http\Controllers\Api\MeetingTypeController::cl
 Route::get('/dropdown/shift_kerjas', [DropdownController::class, 'shiftKerjas']);
 Route::get('/reports/attendance', [ReportController::class, 'attendanceReport']);
 Route::get('/reports/attendance-presence', [ReportController::class, 'attendancePresenceMatrix']);
+
+// Public endpoint for listing religious study events
+Route::get('/religious-study-events', [ReligiousStudyEventController::class, 'index']);
