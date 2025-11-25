@@ -6,6 +6,7 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -23,6 +24,19 @@ class ReligiousStudyEventForm
                 TextInput::make('speaker')->label('Pemateri')->required(),
                 Textarea::make('message')->label('Pesan')->rows(3),
                 Toggle::make('cancelled')->label('Dibatalkan'),
+
+                // Upload gambar untuk event (image_upload)
+                FileUpload::make('image_upload')
+                    ->label('Upload Gambar')
+                    ->image()
+                    ->directory('religious-study-events')
+                    ->disk('public')
+                    ->visibility('public')
+                    ->acceptedFileTypes(['image/jpeg', 'image/png'])
+                    ->maxSize(2048)
+                    ->statePath('image_path')
+                    ->openable()
+                    ->downloadable(),
             ])->columns(2),
         ]);
     }

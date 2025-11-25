@@ -31,4 +31,20 @@ class EditReligiousStudyEvent extends EditRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        if (isset($data['image_upload']) && $data['image_upload']) {
+            $value = $data['image_upload'];
+            if (is_array($value)) {
+                $value = $value[0] ?? null;
+            }
+            if (is_string($value) && $value !== '') {
+                $data['image_path'] = $value;
+            }
+        }
+        unset($data['image_upload']);
+
+        return $data;
+    }
 }

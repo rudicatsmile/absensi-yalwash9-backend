@@ -15,7 +15,7 @@ class AttendanceObserver
         try {
             $tokens = UserPushToken::where('user_id', $attendance->user_id)->pluck('token')->all();
             $title = 'Absensi Masuk';
-            $body = "Selamat bertugas.\nJangan lupa senyum dan berdoa.\nTercatat pada :\n" . Carbon::parse($attendance->date)->format('d-m-Y') . ' ' . ($attendance->time_in ?? '');
+            $body = "Jangan lupa senyum dan berdoa.\nTercatat pada :\n" . Carbon::parse($attendance->date)->format('d-m-Y') . ' ' . ($attendance->time_in ?? '');
             $data = [
                 'type' => 'attendance_checkin',
                 'attendanceId' => (string) $attendance->id,
@@ -35,7 +35,7 @@ class AttendanceObserver
             if ($attendance->isDirty('time_out') && !empty($attendance->time_out)) {
                 $tokens = UserPushToken::where('user_id', $attendance->user_id)->pluck('token')->all();
                 $title = 'Absensi Keluar';
-                $body = "Keluarga menunggu di rumah.\nTercatat pada :\n" . Carbon::parse($attendance->date)->format('d-m-Y') . ' ' . ($attendance->time_out ?? '');
+                $body = "Tercatat pada :\n" . Carbon::parse($attendance->date)->format('d-m-Y') . ' ' . ($attendance->time_out ?? '');
                 $data = [
                     'type' => 'attendance_checkout',
                     'attendanceId' => (string) $attendance->id,

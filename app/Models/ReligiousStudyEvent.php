@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 class ReligiousStudyEvent extends Model
 {
@@ -19,6 +21,7 @@ class ReligiousStudyEvent extends Model
         'message',
         'cancelled',
         'notified',
+        'image_path',
     ];
 
     protected static function booted(): void
@@ -29,5 +32,35 @@ class ReligiousStudyEvent extends Model
                 $model->notify_at = $dt;
             }
         });
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'event_at' => 'datetime',
+            'notify_at' => 'datetime',
+            'cancelled' => 'boolean',
+            'notified' => 'boolean',
+        ];
+    }
+
+    public function storeImage(UploadedFile $file): bool
+    {
+        try {
+            $path = Storage::disk('public')->putFile('religious-study-events', $file);
+            $this->image_path = $path;
+            return true;
+        } catch (\Throwable $e) {
+            \Log::error('model:religious-study-events.store-image.failed', ['error' => $e->getMessage()]);
+            return false;
+        }
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image_path) {
+            return null;
+        }
+        return Storage::disk('public')->url($this->image_path);
     }
 }
