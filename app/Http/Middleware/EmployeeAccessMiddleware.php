@@ -39,10 +39,21 @@ class EmployeeAccessMiddleware
             '/^api\/leaves$/',
             '/^api\/leaves\/\d+$/',
             '/^api\/leaves\/\d+\/cancel$/',
+            '/^api\/permit-types$/',
+            '/^api\/permit-balance$/',
+            '/^api\/permits$/',
+            '/^api\/permits\/\d+$/',
+            '/^api\/permits\/\d+\/cancel$/',
+            '/^api\/start-overtime$/',
+            '/^api\/end-overtime$/',
+            '/^api\/overtime-status$/',
+            '/^api\/overtimes$/',
             '/^api\/update-fcm-token$/',
             '/^api\/users\/\d+\/push-tokens$/',
             '/^api\/events\/\d+\/confirm$/',
             '/^api\/api-user\/\d+$/',
+            '/^api\/religious-study-events$/',
+            '/^api\/religious-study-events\/detail$/',
         ];
 
         foreach ($allowedPatterns as $pattern) {
