@@ -29,6 +29,44 @@ class ReligiousStudyEventsTable
                 TextColumn::make('event_at')->label('Waktu')->dateTime()->sortable(),
                 TextColumn::make('notify_at')->label('Kirim Pada')->dateTime()->sortable(),
                 TextColumn::make('location')->label('Lokasi'),
+                // TextColumn::make('departemen_ids')
+                //     ->label('Departemen'),
+                TextColumn::make('departemen_ids')
+                    ->label('Departemen')
+                    ->formatStateUsing(function (ReligiousStudyEvent $record) {
+                        $names = $record->getAllDepartemenNames();
+                        if ($names->isEmpty()) {
+                            return '-';
+                        }
+                        $seen = [];
+                        $unique = [];
+                        foreach ($names as $name) {
+                            $n = trim((string) $name);
+                            if ($n === '') {
+                                continue;
+                            }
+                            $key = \Illuminate\Support\Str::of($n)->lower()->squish()->value();
+                            if (isset($seen[$key])) {
+                                continue;
+                            }
+                            $seen[$key] = true;
+                            $unique[] = $n;
+                        }
+                        if (empty($unique)) {
+                            return '-';
+                        }
+                        return implode(', ', $unique);
+                    }),
+                TextColumn::make('jabatan_ids')
+                    ->label('Jabatan')
+                    ->formatStateUsing(function (ReligiousStudyEvent $record) {
+                        $names = $record->getAllJabatanNames();
+                        if ($names->isEmpty()) {
+                            return '-';
+                        }
+                        $display = $names->implode(', ');
+                        return $names->count() > 1 ? $display . ' (' . $names->count() . ')' : $display;
+                    }),
                 BadgeColumn::make('cancelled')
                     ->label('Status')
                     ->formatStateUsing(fn($state) => $state ? 'Dibatalkan' : 'Aktif')
@@ -49,7 +87,14 @@ class ReligiousStudyEventsTable
                     0 => 'Aktif',
                     1 => 'Dibatalkan',
                 ])->label('Status'),
+                SelectFilter::make('departemen_id')
+                    ->label('Departemen')
+                    ->options(\App\Models\Departemen::query()->orderBy('name')->pluck('name', 'id')->toArray()),
+                SelectFilter::make('jabatan_id')
+                    ->label('Jabatan')
+                    ->options(\App\Models\Jabatan::query()->orderBy('name')->pluck('name', 'id')->toArray()),
             ])
+            ->query(\App\Models\ReligiousStudyEvent::query()->with(['departemen', 'jabatan']))
             ->actions([
                 EditAction::make(),
                 Action::make('send_now')
@@ -83,9 +128,31 @@ class ReligiousStudyEventsTable
                             'theme' => (string) ($record->theme ?? ''),
                             'speaker' => (string) ($record->speaker ?? ''),
                             'image_path' => $imageUrl,
+                            'departemen_id' => (string) ($record->departemen_id ?? ''),
+                            'jabatan_id' => (string) ($record->jabatan_id ?? ''),
                         ];
                         $tokens = UserPushToken::query()->pluck('token')->all();
-                        $ok = app(FcmService::class)->sendToTokens($tokens, $title, $body, $data, 1);
+                        // Kirim ke banyak departemen jika dipilih (departemen_ids)
+                        $deptIds = is_array($record->departemen_ids) ? $record->departemen_ids : [];
+                        foreach ($deptIds as $deptId) {
+                            if ($deptId) {
+                                $ok = app(FcmService::class)->sendToDepartmentUsers((int) $deptId, $title, $body, $data);
+                            }
+                        }
+                        // Kirim ke banyak jabatan jika dipilih (jabatan_ids)
+                        $jabIds = is_array($record->jabatan_ids) ? $record->jabatan_ids : [];
+                        foreach ($jabIds as $jabId) {
+                            if ($jabId) {
+                                $ok = app(FcmService::class)->sendToJabatanUsers((int) $jabId, $title, $body, $data);
+                            }
+                        }
+
+                        //Jika tidak ada pilihan khusus, kirim ke semua pengguna
+                        if (empty($deptIds) && empty($jabIds) && !$record->departemen_id && !$record->jabatan_id) {
+                            $ok = app(FcmService::class)->sendToTokens($tokens, $title, $body, $data, 1);
+                        }
+
+                        //$ok = app(FcmService::class)->sendToTokens($tokens, title: $title, $body, $data, 1);
                         NotificationLog::create([
                             'event_id' => $record->id,
                             'type' => 'religious_event_notify',

@@ -41,7 +41,7 @@ class FcmService
 
         try {
             $messaging = app('firebase.messaging');
-
+            $imageUrl = isset($data['image_path']) && is_string($data['image_path']) ? $data['image_path'] : '';
             $message = CloudMessage::new()
                 // === WAJIB: Notification payload (agar muncul saat app terminated) ===
                 ->withNotification(FirebaseNotification::create($title, $body))
@@ -61,6 +61,8 @@ class FcmService
                             'notification_priority' => 'PRIORITY_MAX',
                             'visibility' => 'PUBLIC',
                             'icon' => '@mipmap/ic_launcher',
+                            // Tampilkan gambar di tray notifikasi (BigPictureStyle)
+                            ...($imageUrl ? ['image' => $imageUrl] : []),
                         ],
                     ])
                 )
@@ -79,7 +81,10 @@ class FcmService
                             'sound' => 'default',
                             'badge' => 1,
                             'category' => 'RELIGIOUS_EVENT', // jika pakai action button
+                            // Agar rich media (gambar) bisa ditampilkan oleh Notification Service Extension
+                            ...($imageUrl ? ['mutable-content' => 1] : []),
                         ],
+                        ...($imageUrl ? ['image' => $imageUrl] : []),
                     ],
                 ]);
 
@@ -121,6 +126,62 @@ class FcmService
     }
 
     /**
+     * Kirim notifikasi ke semua user dalam departemen tertentu
+     */
+    public function sendToDepartmentUsers(int $departemenId, string $title, string $body, array $data = [], int $retry = 1): bool
+    {
+        $tokens = \App\Models\UserPushToken::query()
+            ->join('users', 'users.id', '=', 'user_push_tokens.user_id')
+            ->where('users.departemen_id', $departemenId)
+            ->pluck('user_push_tokens.token')
+            ->all();
+        return $this->sendToTokens($tokens, $title, $body, $data, $retry);
+    }
+
+    /**
+     * Kirim notifikasi ke semua user dalam jabatan tertentu
+     */
+    public function sendToJabatanUsers(int $jabatanId, string $title, string $body, array $data = [], int $retry = 1): bool
+    {
+        $tokens = \App\Models\UserPushToken::query()
+            ->join('users', 'users.id', '=', 'user_push_tokens.user_id')
+            ->where('users.jabatan_id', $jabatanId)
+            ->pluck('user_push_tokens.token')
+            ->all();
+        return $this->sendToTokens($tokens, $title, $body, $data, $retry);
+    }
+
+    public function sendToJabatan($jabatanCode, $title, $body, $data = [])
+    {
+        // Normalisasi nama jabatan jadi topic (sama seperti di Flutter)
+        // $topic = 'jabatan_' . strtolower(str_replace(' ', '_', $jabatanCode));
+        $topic = "jabatan_" . strtolower($jabatanCode);
+
+
+        $message = CloudMessage::withTarget('topic', $topic)
+            ->withNotification(Notification::create($title, $body))
+            ->withData($data);
+
+        app('firebase.messaging')->send($message);
+
+        Log::info("Notifikasi dikirim ke jabatan: $topic");
+    }
+
+    // Contoh: Kirim hanya ke Departemen tertentu (misal: HRD)
+    public function sendToDepartment($departmentCode, $title, $body, $data = [])
+    {
+        $topic = "dept_" . strtolower($departmentCode); // dept_hrd
+
+        $message = CloudMessage::withTarget('topic', $topic)
+            ->withNotification(Notification::create($title, $body))
+            ->withData($data);
+
+        app('firebase.messaging')->send($message);
+
+        Log::info("Notifikasi dikirim ke topic: $topic");
+    }
+
+    /**
      * Fallback ke Legacy FCM API (HTTP v1 sudah deprecated, tapi masih jalan sampai 2026)
      */
     private function sendLegacy(array $tokens, string $title, string $body, array $data = []): bool
@@ -132,6 +193,7 @@ class FcmService
             return false;
         }
 
+        $imageUrl = isset($data['image_path']) && is_string($data['image_path']) ? $data['image_path'] : '';
         $payload = [
             'registration_ids' => $tokens,
             'priority' => 'high',
@@ -141,6 +203,8 @@ class FcmService
                 'sound' => 'default',
                 'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
                 'channel_id' => 'high_importance_channel',
+                // Tampilkan gambar di tray notifikasi jika tersedia
+                ...($imageUrl ? ['image' => $imageUrl] : []),
             ],
             'data' => $data,
         ];
