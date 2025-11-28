@@ -12,13 +12,15 @@ class AttendanceChartWidget extends ChartWidget
 
     protected static ?int $sort = 2;
 
+    protected int|string|array $columnSpan = 'full';
+
     protected function getData(): array
     {
         $data = [];
         $labels = [];
 
         // Ambil data 7 hari terakhir
-        for ($i = 6; $i >= 0; $i--) {
+        for ($i = 30; $i >= 0; $i--) {
             $date = Carbon::now()->subDays($i);
             $labels[] = $date->format('d M');
 
