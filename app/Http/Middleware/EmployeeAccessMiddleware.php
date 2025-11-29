@@ -54,6 +54,7 @@ class EmployeeAccessMiddleware
             '/^api\/api-user\/\d+$/',
             '/^api\/religious-study-events$/',
             '/^api\/religious-study-events\/detail$/',
+            '/^api\/contacts$/',
         ];
 
         foreach ($allowedPatterns as $pattern) {

@@ -120,6 +120,6 @@ Route::get('/reports/attendance-presence', [ReportController::class, 'attendance
 Route::get('/religious-study-events', [ReligiousStudyEventController::class, 'index'])->middleware(['auth:sanctum', 'throttle:60,1']);
 Route::post('/religious-study-events/detail', [ReligiousStudyEventController::class, 'detail'])->middleware(['auth:sanctum', 'throttle:60,1']);
 
-// Route::apiResource('contacts', App\Http\Controllers\Api\ContactController::class)->middleware('auth:sanctum');
-Route::apiResource('contacts', App\Http\Controllers\Api\ContactController::class)->middleware(['auth:sanctum', App\Http\Middleware\EmployeeAccessMiddleware::class]);
+Route::apiResource('contacts', App\Http\Controllers\Api\ContactController::class)->middleware('auth:sanctum');
+// Route::apiResource('contacts', App\Http\Controllers\Api\ContactController::class)->middleware(['auth:sanctum', App\Http\Middleware\EmployeeAccessMiddleware::class]);
 
