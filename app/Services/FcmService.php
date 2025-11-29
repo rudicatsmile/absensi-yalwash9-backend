@@ -8,6 +8,7 @@ use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification as FirebaseNotification;
 use Kreait\Firebase\Messaging\AndroidConfig;
 use Kreait\Firebase\Messaging\AndroidNotification;
+use App\Jobs\SendFcmNotificationJob;
 
 class FcmService
 {
@@ -151,6 +152,17 @@ class FcmService
         return $this->sendToTokens($tokens, $title, $body, $data, $retry);
     }
 
+    //send to user by id
+    public function sendToUser(int $userId, string $title, string $body, array $data = [], int $retry = 1): bool
+    {
+        $tokens = \App\Models\UserPushToken::query()
+            ->where('user_id', $userId)
+            ->pluck('token')
+            ->all();
+        return $this->sendToTokens($tokens, $title, $body, $data, $retry);
+    }
+
+
     public function sendToJabatan($jabatanCode, $title, $body, $data = [])
     {
         // Normalisasi nama jabatan jadi topic (sama seperti di Flutter)
@@ -268,4 +280,53 @@ class FcmService
             return false;
         }
     }
+
+
+    /**
+     * Mengirim notifikasi ke pengguna tertentu secara asinkron melalui queue.
+     *
+     * Method ini mengambil ID pengguna, mencari semua token FCM yang valid,
+     * lalu memasukkan tugas pengiriman notifikasi ke dalam antrian (queue).
+     * Ini memastikan proses pengiriman tidak memblokir response aplikasi.
+     *
+     * @param int    $userId  ID dari pengguna yang akan dikirimi notifikasi.
+     * @param string $title   Judul notifikasi.
+     * @param string $body    Isi pesan notifikasi.
+     * @param array  $data    Data tambahan yang akan dikirim bersama notifikasi.
+     * @return void
+     *
+     * @example
+     * // Di dalam controller atau service lain:
+     * app(FcmService::class)->sendToUserWithJob(
+     *     123, // User ID
+     *     'Persetujuan Izin',
+     *     'Pengajuan izin Anda telah disetujui.',
+     *     ['permit_id' => 'P-001', 'type' => 'permit_status']
+     * );
+     */
+    // public function sendToUserWithJob(int $userId, string $title, string $body, array $data = []): void
+    // {
+    //     // Ambil semua token FCM yang aktif milik pengguna
+    //     $tokens = \App\Models\UserPushToken::query()
+    //         ->where('user_id', $userId)
+    //         ->pluck('token')
+    //         ->filter()
+    //         ->unique()
+    //         ->values()
+    //         ->all();
+
+    //     if (empty($tokens)) {
+    //         Log::info('FCM: Tidak ada token yang ditemukan untuk user', ['userId' => $userId]);
+    //         return;
+    //     }
+
+    //     Log::info('FCM: Menambahkan job ke queue untuk user', [
+    //         'userId' => $userId,
+    //         'tokens_count' => count($tokens),
+    //         'title' => $title
+    //     ]);
+
+    //     // Kirim ke queue untuk diproses secara asynchronous
+    //     SendFcmNotificationJob::dispatch($tokens, $title, $body, $data);
+    // }
 }

@@ -5,6 +5,8 @@ namespace App\Filament\Resources\Permits\Tables;
 use App\Models\Permit;
 use App\Support\WorkdayCalculator;
 use Carbon\Carbon;
+use App\Services\FcmService;
+use App\Models\UserPushToken;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -171,6 +173,17 @@ class PermitsTable
                             DB::commit();
 
                             //TODO: Send notification to employee
+                            // Send notification to employee
+                            $employee = $record->employee;
+                            if ($employee && $employee->id) {
+                                $title = 'Pengajuan Izin Disetujui';
+                                $body = 'Pengajuan izin Anda pada tanggal ' . $record->start_date->format('d/m/Y') . ' telah disetujui.';
+                                $data = [
+                                    'type' => 'permit_status_update',
+                                    'permit_id' => (string) $record->id,
+                                ];
+                                app(FcmService::class)->sendToUser($employee->id, $title, $body, $data);
+                            }
 
                             \Filament\Notifications\Notification::make()
                                 ->title('Permintaan izin disetujui')
@@ -214,6 +227,18 @@ class PermitsTable
                             'approved_at' => now(),
                             'notes' => $data['notes'],
                         ]);
+
+                        // Send notification to employee
+                        $employee = $record->employee;
+                        if ($employee && $employee->id) {
+                            $title = 'Pengajuan Izin Ditolak';
+                            $body = 'Maaf, pengajuan izin Anda pada tanggal ' . $record->start_date->format('d/m/Y') . ' ditolak.';
+                            $data = [
+                                'type' => 'permit_status_update',
+                                'permit_id' => (string) $record->id,
+                            ];
+                            app(FcmService::class)->sendToUser($employee->id, $title, $body, $data);
+                        }
 
                         \Filament\Notifications\Notification::make()
                             ->title('Permit request rejected')
