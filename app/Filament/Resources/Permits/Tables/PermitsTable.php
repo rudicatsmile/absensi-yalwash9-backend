@@ -55,12 +55,12 @@ class PermitsTable
 
                 IconColumn::make('attachment_url')
                     ->label('Attachment')
-                    ->icon(fn ($record) => $record->attachment_url ? 'heroicon-o-paper-clip' : null)
+                    ->icon(fn($record) => $record->attachment_url ? 'heroicon-o-paper-clip' : null)
                     ->color('primary')
-                    ->url(fn ($record) => $record->attachment_url ? Storage::url($record->attachment_url) : null)
+                    ->url(fn($record) => $record->attachment_url ? Storage::url($record->attachment_url) : null)
                     ->openUrlInNewTab()
                     ->alignCenter()
-                    ->tooltip(fn ($record) => $record->attachment_url ? 'View Attachment' : 'No Attachment'),
+                    ->tooltip(fn($record) => $record->attachment_url ? 'View Attachment' : 'No Attachment'),
 
                 BadgeColumn::make('status')
                     ->label('Status')
@@ -120,11 +120,11 @@ class PermitsTable
                         return $query
                             ->when(
                                 $data['start_date'],
-                                fn (Builder $query, $date): Builder => $query->where('start_date', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->where('start_date', '>=', $date),
                             )
                             ->when(
                                 $data['end_date'],
-                                fn (Builder $query, $date): Builder => $query->where('end_date', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->where('end_date', '<=', $date),
                             );
                     }),
             ])
@@ -134,20 +134,20 @@ class PermitsTable
 
                 EditAction::make()
                     ->label('Edit')
-                    ->visible(fn (Permit $record) => $record->status === 'pending' && ! in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)),
+                    ->visible(fn(Permit $record) => $record->status === 'pending' && !in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)),
 
                 Action::make('approve')
-                    ->label('Approve')
+                    ->label('Approve ')
                     ->color('success')
                     ->icon('heroicon-o-check')
-                    ->visible(fn (Permit $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin','kepala_lembaga'], true))
+                    ->visible(fn(Permit $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga'], true))
                     ->requiresConfirmation()
-                    ->modalHeading('Approve Permit Request')
-                    ->modalDescription(fn ($record) => 'Employee: '.$record->employee->name."\nPermit Type: ".$record->permitType->name."\nDates: ".$record->start_date->format('d/m/Y').' - '.$record->end_date->format('d/m/Y'))
+                    ->modalHeading('Approval Permintaan Izin')
+                    ->modalDescription(fn($record) => 'A/n: ' . $record->employee->name . "\n - " . $record->permitType->name . "\n - " . $record->start_date->format('d/m/Y') . ' - ' . $record->end_date->format('d/m/Y'))
                     ->action(function (Permit $record) {
                         if (!Gate::allows('approve-high', $record) && !Gate::allows('approve-subsection', $record)) {
                             \Filament\Notifications\Notification::make()
-                                ->title('You are not authorized to approve this permit')
+                                ->title('Tidak ada hak akses untuk mengapprove permintaan ini')
                                 ->danger()
                                 ->send();
                             return;
@@ -170,15 +170,17 @@ class PermitsTable
 
                             DB::commit();
 
+                            //TODO: Send notification to employee
+
                             \Filament\Notifications\Notification::make()
-                                ->title('Permit request approved successfully')
+                                ->title('Permintaan izin disetujui')
                                 ->success()
                                 ->send();
                         } catch (\Exception $e) {
                             DB::rollBack();
 
                             \Filament\Notifications\Notification::make()
-                                ->title('Failed to approve permit request')
+                                ->title('Gagal menyetujui permintaan izin')
                                 ->danger()
                                 ->body($e->getMessage())
                                 ->send();
@@ -189,7 +191,7 @@ class PermitsTable
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-circle')
-                    ->visible(fn (Permit $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin','kepala_lembaga'], true))
+                    ->visible(fn(Permit $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga'], true))
                     ->form([
                         Textarea::make('notes')
                             ->label('Rejection Notes')
@@ -197,7 +199,7 @@ class PermitsTable
                             ->required(),
                     ])
                     ->modalHeading('Reject Permit Request')
-                    ->modalDescription(fn ($record) => 'Employee: '.$record->employee->name."\nPermit Type: ".$record->permitType->name)
+                    ->modalDescription(fn($record) => 'Employee: ' . $record->employee->name . "\nPermit Type: " . $record->permitType->name)
                     ->action(function (Permit $record, array $data) {
                         if (!Gate::allows('approve-high', $record) && !Gate::allows('approve-subsection', $record)) {
                             \Filament\Notifications\Notification::make()
@@ -222,7 +224,7 @@ class PermitsTable
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => auth()->check() && in_array(auth()->user()->role, ['admin','kepala_lembaga'], true)),
+                        ->visible(fn() => auth()->check() && in_array(auth()->user()->role, ['admin', 'kepala_lembaga'], true)),
                 ]),
             ])
             ->defaultSort('created_at', 'desc')
