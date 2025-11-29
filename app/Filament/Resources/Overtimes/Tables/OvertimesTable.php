@@ -5,6 +5,11 @@ namespace App\Filament\Resources\Overtimes\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Textarea;
+use Illuminate\Support\Facades\Gate;
+use App\Services\FcmService;
+use App\Models\Overtime;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -54,7 +59,7 @@ class OvertimesTable
                 TextColumn::make('document')
                     ->label('Dokumen PDF')
                     ->formatStateUsing(function ($state) {
-                        if (! $state) {
+                        if (!$state) {
                             return 'Tidak Ada';
                         }
 
@@ -68,12 +73,12 @@ class OvertimesTable
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'pending' => 'warning',
                         'approved' => 'success',
                         'rejected' => 'danger',
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state): string => match ($state) {
                         'pending' => 'Menunggu',
                         'approved' => 'Disetujui',
                         'rejected' => 'Ditolak',
@@ -124,20 +129,20 @@ class OvertimesTable
                         return $query
                             ->when(
                                 $data['date_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('date', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('date', '>=', $date),
                             )
                             ->when(
                                 $data['date_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('date', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('date', '<=', $date),
                             );
                     })
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['date_from'] ?? null) {
-                            $indicators['date_from'] = 'Dari: '.\Carbon\Carbon::parse($data['date_from'])->format('d M Y');
+                            $indicators['date_from'] = 'Dari: ' . \Carbon\Carbon::parse($data['date_from'])->format('d M Y');
                         }
                         if ($data['date_until'] ?? null) {
-                            $indicators['date_until'] = 'Sampai: '.\Carbon\Carbon::parse($data['date_until'])->format('d M Y');
+                            $indicators['date_until'] = 'Sampai: ' . \Carbon\Carbon::parse($data['date_until'])->format('d M Y');
                         }
 
                         return $indicators;
@@ -145,12 +150,12 @@ class OvertimesTable
 
                 Filter::make('this_month')
                     ->label('Bulan Ini')
-                    ->query(fn (Builder $query): Builder => $query->whereMonth('date', now()->month)->whereYear('date', now()->year))
+                    ->query(fn(Builder $query): Builder => $query->whereMonth('date', now()->month)->whereYear('date', now()->year))
                     ->toggle(),
 
                 Filter::make('this_week')
                     ->label('Minggu Ini')
-                    ->query(fn (Builder $query): Builder => $query->whereBetween('date', [
+                    ->query(fn(Builder $query): Builder => $query->whereBetween('date', [
                         now()->startOfWeek(),
                         now()->endOfWeek(),
                     ]))
@@ -158,7 +163,7 @@ class OvertimesTable
 
                 Filter::make('today')
                     ->label('Hari Ini')
-                    ->query(fn (Builder $query): Builder => $query->whereDate('date', now()))
+                    ->query(fn(Builder $query): Builder => $query->whereDate('date', now()))
                     ->toggle(),
             ])
             ->recordActions([
@@ -166,7 +171,72 @@ class OvertimesTable
                     ->label('Detail'),
                 EditAction::make()
                     ->label('Edit')
-                    ->visible(fn () => !auth()->check() || ! in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)),
+                    ->visible(fn() => !auth()->check() || !in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)),
+                Action::make('approve')
+                    ->label('Approve')
+                    ->color('success')
+                    ->icon('heroicon-o-check')
+                    ->visible(fn(Overtime $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga'], true))
+                    ->requiresConfirmation()
+                    ->action(function (Overtime $record) {
+                        $record->update([
+                            'status' => 'approved',
+                            'approved_by' => auth()->id(),
+                            'approved_at' => now(),
+                        ]);
+
+                        $employee = $record->user;
+                        if ($employee && $employee->id) {
+                            $title = 'Pengajuan Overtime Disetujui';
+                            $body = 'Pengajuan Overtime Anda pada tanggal ' . $record->date->format('d/m/Y') . ' telah disetujui.';
+                            $data = [
+                                'type' => 'overtime_status_update',
+                                'overtime_id' => (string) $record->id,
+                            ];
+                            app(FcmService::class)->sendToUser($employee->id, $title, $body, $data);
+                        }
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Pengajuan Overtime berhasil disetujui')
+                            ->success()
+                            ->send();
+                    }),
+
+                Action::make('reject')
+                    ->label('Di tolak')
+                    ->color('danger')
+                    ->icon('heroicon-o-x-circle')
+                    ->visible(fn(Overtime $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga'], true))
+                    ->form([
+                        Textarea::make('notes')
+                            ->label('Alasan Penolakan')
+                            ->rows(3)
+                            ->required(),
+                    ])
+                    ->action(function (Overtime $record, array $data) {
+                        $record->update([
+                            'status' => 'rejected',
+                            'approved_by' => auth()->id(),
+                            'approved_at' => now(),
+                            'notes' => $data['notes'],
+                        ]);
+
+                        $employee = $record->user;
+                        if ($employee && $employee->id) {
+                            $title = 'Pengajuan Overtime Ditolak';
+                            $body = 'Maaf, pengajuan Overtime Anda pada tanggal ' . $record->date->format('d/m/Y') . ' ditolak.';
+                            $data = [
+                                'type' => 'overtime_status_update',
+                                'overtime_id' => (string) $record->id,
+                            ];
+                            app(FcmService::class)->sendToUser($employee->id, $title, $body, $data);
+                        }
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Pengajuan Overtime berhasil ditolak')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->headerActions([
                 \Filament\Actions\Action::make('export_pdf')
@@ -181,7 +251,7 @@ class OvertimesTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => auth()->check() && ! in_array(auth()->user()->role, ['employee','manager','kepala_sub_bagian'], true)),
+                        ->visible(fn() => auth()->check() && !in_array(auth()->user()->role, ['employee', 'manager', 'kepala_sub_bagian'], true)),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');

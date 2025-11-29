@@ -23,6 +23,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Gate;
+use App\Services\FcmService;
+
 
 class LeavesTable
 {
@@ -143,12 +145,12 @@ class LeavesTable
                     ->icon('heroicon-o-check')
                     ->visible(fn(Leave $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga'], true))
                     ->requiresConfirmation()
-                    ->modalHeading('Approve Leave Request')
-                    ->modalDescription(fn($record) => 'Employee: ' . $record->employee->name . "\nLeave Type: " . $record->leaveType->name . "\nDates: " . $record->start_date->format('d/m/Y') . ' - ' . $record->end_date->format('d/m/Y'))
+                    ->modalHeading('Approval Permintaan Cuti')
+                    ->modalDescription(fn($record) => $record->employee->name . "\n - " . $record->leaveType->name . "\n- " . $record->start_date->format('d/m/Y') . ' - ' . $record->end_date->format('d/m/Y'))
                     ->action(function (Leave $record) {
                         if (!Gate::allows('approve-high', $record) && !Gate::allows('approve-subsection', $record)) {
                             \Filament\Notifications\Notification::make()
-                                ->title('You are not authorized to approve this leave')
+                                ->title('Anda tidak memiliki izin untuk mengajukan cuti ini')
                                 ->danger()
                                 ->send();
                             return;
@@ -173,9 +175,9 @@ class LeavesTable
                                 DB::rollBack();
 
                                 \Filament\Notifications\Notification::make()
-                                    ->title('Cannot approve leave request')
+                                    ->title('Tidak dapat mengajukan cuti ini')
                                     ->danger()
-                                    ->body('Leave balance not found for this employee and leave type.')
+                                    ->body('Saldo cuti tidak ditemukan untuk karyawan ini dan jenis cuti ini.')
                                     ->send();
 
                                 return;
@@ -186,9 +188,9 @@ class LeavesTable
                                 DB::rollBack();
 
                                 \Filament\Notifications\Notification::make()
-                                    ->title('Cannot approve leave request')
+                                    ->title('Tidak dapat mengajukan cuti ini')
                                     ->danger()
-                                    ->body("Insufficient leave balance. Required: {$totalDays} days, Available: {$leaveBalance->remaining_days} days.")
+                                    ->body("Saldo cuti tidak mencukupi. Diperlukan: {$totalDays} hari, Tersedia: {$leaveBalance->remaining_days} hari.")
                                     ->send();
 
                                 return;
@@ -208,6 +210,18 @@ class LeavesTable
                             ]);
 
                             DB::commit();
+
+                            // Send notification to employee
+                            $employee = $record->employee;
+                            if ($employee && $employee->id) {
+                                $title = 'Pengajuan Cuti Disetujui';
+                                $body = 'Pengajuan cuti Anda pada tanggal ' . $record->start_date->format('d/m/Y') . ' telah disetujui.';
+                                $data = [
+                                    'type' => 'leave_status_update',
+                                    'leave_id' => (string) $record->id,
+                                ];
+                                app(FcmService::class)->sendToUser($employee->id, $title, $body, $data);
+                            }
 
                             \Filament\Notifications\Notification::make()
                                 ->title('Leave request approved successfully')
@@ -251,6 +265,18 @@ class LeavesTable
                             'approved_at' => now(),
                             'notes' => $data['notes'],
                         ]);
+
+                        // Send notification to employee
+                        $employee = $record->employee;
+                        if ($employee && $employee->id) {
+                            $title = 'Pengajuan Cuti Ditolak';
+                            $body = 'Maaf, pengajuan cuti Anda pada tanggal ' . $record->start_date->format('d/m/Y') . ' ditolak.';
+                            $data = [
+                                'type' => 'leave_status_update',
+                                'leave_id' => (string) $record->id,
+                            ];
+                            app(FcmService::class)->sendToUser($employee->id, $title, $body, $data);
+                        }
 
                         \Filament\Notifications\Notification::make()
                             ->title('Leave request rejected')
