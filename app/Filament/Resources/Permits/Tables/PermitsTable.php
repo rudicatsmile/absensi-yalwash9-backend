@@ -181,6 +181,7 @@ class PermitsTable
                                 $data = [
                                     'type' => 'permit_status_update',
                                     'permit_id' => (string) $record->id,
+                                    'event_id' => (string) $record->shift_id,
                                 ];
                                 app(FcmService::class)->sendToUser($employee->id, $title, $body, $data);
                             }
@@ -236,6 +237,7 @@ class PermitsTable
                             $data = [
                                 'type' => 'permit_status_update',
                                 'permit_id' => (string) $record->id,
+                                'event_id' => (string) $record->shift_id,
                             ];
                             app(FcmService::class)->sendToUser($employee->id, $title, $body, $data);
                         }
