@@ -52,8 +52,9 @@ class PermitForm
                                 self::calculateTotalDays($get, $set);
                             }),
 
-                        Select::make('total_days')
+                        \Filament\Forms\Components\TextInput::make('total_days')
                             ->label('Total Days')
+                            ->numeric()
                             ->disabled()
                             ->dehydrated()
                             ->default(1),
@@ -93,9 +94,9 @@ class PermitForm
                                 'rejected' => 'Rejected',
                             ])
                             ->default('pending')
-                            ->disabled(fn ($record) => $record === null)
+                            ->disabled(fn($record) => $record === null)
                             // ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
-                            ->visible(fn () => in_array(auth()->user()->role, ['admin','manager','kepala_lembaga','kepala_sub_bagian'], true)),
+                            ->visible(fn() => in_array(auth()->user()->role, ['admin', 'manager', 'kepala_lembaga', 'kepala_sub_bagian'], true)),
 
 
 
@@ -104,10 +105,10 @@ class PermitForm
                             ->rows(2)
                             ->columnSpanFull()
                             // ->visible(fn () => auth()->user()->role === 'admin' || auth()->user()->role === 'manager'),
-                             ->visible(fn () => in_array(auth()->user()->role, ['admin','manager','kepala_lembaga','kepala_sub_bagian'], true)),
+                            ->visible(fn() => in_array(auth()->user()->role, ['admin', 'manager', 'kepala_lembaga', 'kepala_sub_bagian'], true)),
                     ])
                     // ->visible(fn ($record) => $record !== null && (auth()->user()->role === 'admin' || auth()->user()->role === 'manager')),
-                     ->visible(fn ($record) => $record !== null && (in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id)))),
+                    ->visible(fn($record) => $record !== null && (in_array(auth()->user()->role, ['admin', 'manager', 'kepala_lembaga'], true) || (auth()->user()->role === 'kepala_sub_bagian' && (($record->employee?->departemen_id ?? null) === auth()->user()->departemen_id)))),
             ]);
     }
 

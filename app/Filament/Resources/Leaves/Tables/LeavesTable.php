@@ -56,12 +56,12 @@ class LeavesTable
 
                 IconColumn::make('attachment_url')
                     ->label('Attachment')
-                    ->icon(fn ($record) => $record->attachment_url ? 'heroicon-o-paper-clip' : null)
+                    ->icon(fn($record) => $record->attachment_url ? 'heroicon-o-paper-clip' : null)
                     ->color('primary')
-                    ->url(fn ($record) => $record->attachment_url ? Storage::url($record->attachment_url) : null)
+                    ->url(fn($record) => $record->attachment_url ? Storage::url($record->attachment_url) : null)
                     ->openUrlInNewTab()
                     ->alignCenter()
-                    ->tooltip(fn ($record) => $record->attachment_url ? 'View Attachment' : 'No Attachment'),
+                    ->tooltip(fn($record) => $record->attachment_url ? 'View Attachment' : 'No Attachment'),
 
                 BadgeColumn::make('status')
                     ->label('Status')
@@ -121,11 +121,11 @@ class LeavesTable
                         return $query
                             ->when(
                                 $data['start_date'],
-                                fn (Builder $query, $date): Builder => $query->where('start_date', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->where('start_date', '>=', $date),
                             )
                             ->when(
                                 $data['end_date'],
-                                fn (Builder $query, $date): Builder => $query->where('end_date', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->where('end_date', '<=', $date),
                             );
                     }),
             ])
@@ -135,16 +135,16 @@ class LeavesTable
 
                 EditAction::make()
                     ->label('Edit')
-                    ->visible(fn (Leave $record) => $record->status === 'pending' && ! in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)),
+                    ->visible(fn(Leave $record) => $record->status === 'pending' && !in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)),
 
                 Action::make('approve')
                     ->label('Approve')
                     ->color('success')
                     ->icon('heroicon-o-check')
-                    ->visible(fn (Leave $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin','kepala_lembaga'], true))
+                    ->visible(fn(Leave $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga'], true))
                     ->requiresConfirmation()
                     ->modalHeading('Approve Leave Request')
-                    ->modalDescription(fn ($record) => 'Employee: '.$record->employee->name."\nLeave Type: ".$record->leaveType->name."\nDates: ".$record->start_date->format('d/m/Y').' - '.$record->end_date->format('d/m/Y'))
+                    ->modalDescription(fn($record) => 'Employee: ' . $record->employee->name . "\nLeave Type: " . $record->leaveType->name . "\nDates: " . $record->start_date->format('d/m/Y') . ' - ' . $record->end_date->format('d/m/Y'))
                     ->action(function (Leave $record) {
                         if (!Gate::allows('approve-high', $record) && !Gate::allows('approve-subsection', $record)) {
                             \Filament\Notifications\Notification::make()
@@ -169,7 +169,7 @@ class LeavesTable
                                 ->first();
 
                             // Check if leave balance exists
-                            if (! $leaveBalance) {
+                            if (!$leaveBalance) {
                                 DB::rollBack();
 
                                 \Filament\Notifications\Notification::make()
@@ -228,7 +228,7 @@ class LeavesTable
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-circle')
-                    ->visible(fn (Leave $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin','kepala_lembaga'], true))
+                    ->visible(fn(Leave $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga'], true))
                     ->form([
                         Textarea::make('notes')
                             ->label('Rejection Notes')
@@ -236,7 +236,7 @@ class LeavesTable
                             ->required(),
                     ])
                     ->modalHeading('Reject Leave Request')
-                    ->modalDescription(fn ($record) => 'Employee: '.$record->employee->name."\nLeave Type: ".$record->leaveType->name)
+                    ->modalDescription(fn($record) => 'Employee: ' . $record->employee->name . "\nLeave Type: " . $record->leaveType->name)
                     ->action(function (Leave $record, array $data) {
                         if (!Gate::allows('approve-high', $record) && !Gate::allows('approve-subsection', $record)) {
                             \Filament\Notifications\Notification::make()
@@ -261,7 +261,7 @@ class LeavesTable
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => in_array(auth()->user()->role, ['admin','manager','kepala_lembaga'], true)),
+                        ->visible(fn() => in_array(auth()->user()->role, ['admin', 'manager', 'kepala_lembaga'], true)),
                 ]),
             ])
             ->defaultSort('created_at', 'desc')

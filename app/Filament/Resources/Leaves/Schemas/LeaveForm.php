@@ -52,8 +52,15 @@ class LeaveForm
                                 self::calculateTotalDays($get, $set);
                             }),
 
-                        Select::make('total_days')
+                        // Select::make('total_days')
+                        //     ->label('Total Days')
+                        //     ->disabled()
+                        //     ->dehydrated()
+                        //     ->default(1),
+
+                        \Filament\Forms\Components\TextInput::make('total_days')
                             ->label('Total Days')
+                            ->numeric()
                             ->disabled()
                             ->dehydrated()
                             ->default(1),
