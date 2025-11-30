@@ -2,12 +2,15 @@
 
 namespace App\Filament\Resources\Contacts\Tables;
 
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Table;
+use App\Filament\Resources\Contacts\ContactResource;
+use App\Models\Contact;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
 
 class ContactsTable
 {
@@ -15,6 +18,10 @@ class ContactsTable
     {
         return $table
             ->columns([
+                ImageColumn::make('avatarUrl')
+                    ->label('Avatar')
+                    ->disk('public')
+                    ->circular(),
                 TextColumn::make('name')->searchable(),
                 TextColumn::make('email')->searchable(),
                 TextColumn::make('phone'),
@@ -29,7 +36,8 @@ class ContactsTable
                     ]),
             ])
             ->actions([
-                EditAction::make(),
+                EditAction::make()
+                    ->url(fn(Contact $record): string => ContactResource::getUrl('edit', ['record' => $record])),
                 DeleteAction::make(),
             ])
             ->bulkActions([

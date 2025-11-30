@@ -21,6 +21,8 @@ class Contact extends Model
         'email',
         'avatarUrl',
         'status',
+        'bagian',
+        'sub_bagian',
     ];
 
     /**
