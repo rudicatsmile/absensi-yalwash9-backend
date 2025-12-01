@@ -30,32 +30,45 @@ class UserForm
                     ->validationAttribute('Email')
                     ->live(debounce: 500)
                     ->maxLength(255),
+
                 TextInput::make('password')
+                    ->label('Password')
                     ->password()
-                    ->revealable()
-                    ->suffixIcon('heroicon-o-eye')
-                    ->required(fn(string $context): bool => $context === 'create')
-                    ->dehydrated(fn($state) => filled($state))
-                    ->validationAttribute('Password')
-                    ->live(onBlur: true)
-                    ->afterStateHydrated(fn($component) => $component->state(''))
-                    ->autocomplete('new-password')
-                    ->minLength(8)
-                    ->placeholder('Kosongkan jika tidak ingin mengubah')
-                    ->rules(function (Get $get) {
-                        $val = $get('password');
-                        if (!filled($val)) {
-                            return ['nullable'];
-                        }
-                        return ['min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/'];
-                    })
-                    ->helperText(function (\Filament\Schemas\Components\Utilities\Get $get) {
-                        $val = $get('password');
-                        if (!filled($val)) {
-                            return 'Password tidak akan diubah jika dibiarkan kosong';
-                        }
-                        return 'Gunakan kombinasi huruf besar, huruf kecil, dan angka (min 8 karakter)';
-                    }),
+                    ->required()
+                    ->minLength(6)
+                    ->maxLength(100)
+                    // wajib diisi hanya ketika membuat data baru (halaman “create”), dan tidak wajib ketika mengedit (halaman “edit”).
+                    ->required(fn(?string $context): bool => $context === 'create')
+                    ->default('')                  // ← Pastikan default kosong
+
+                    // Selalu kosongkan field password saat form pertama kali dimuat (baik create maupun edit).
+                    ->placeholder('Masukkan password'),
+                // TextInput::make('password')
+                //     ->password()
+                //     ->revealable()
+                //     ->suffixIcon('heroicon-o-eye')
+                //     ->required(fn(string $context): bool => $context === 'create')
+                //     ->dehydrated(fn($state) => filled($state))
+                //     ->validationAttribute('Password')
+                //     ->live(onBlur: true)
+                //     ->afterStateHydrated(fn($component) => $component->state(''))
+                //     ->autocomplete('new-password')
+                //     ->minLength(8)
+                //     ->placeholder('Kosongkan jika tidak ingin mengubah')
+                //     ->rules(function (Get $get) {
+                //         $val = $get('password');
+                //         if (!filled($val)) {
+                //             return ['nullable'];
+                //         }
+                //         return ['min:8', 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/'];
+                //     })
+                //     ->helperText(function (\Filament\Schemas\Components\Utilities\Get $get) {
+                //         $val = $get('password');
+                //         if (!filled($val)) {
+                //             return 'Password tidak akan diubah jika dibiarkan kosong';
+                //         }
+                //         return 'Gunakan kombinasi huruf besar, huruf kecil, dan angka (min 8 karakter)';
+                //     }),
                 TextInput::make('phone')
                     ->tel()
                     ->live(debounce: 500)
@@ -96,6 +109,7 @@ class UserForm
                         if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
                             $query->whereIn('name', ['Kasubag', 'Pegawai']);
                         }
+                        $query->orderBy('id');
                     })
                     ->required()
                     ->disabled(fn(string $context) => $context === 'edit' && auth()->check() && auth()->user()->role === 'employee')
@@ -105,7 +119,7 @@ class UserForm
                 Select::make('departemen_id')
                     ->label('Unit Kerja')
                     ->options(function (Get $get) {
-                        $base = \App\Models\Departemen::query()->orderBy('name');
+                        $base = \App\Models\Departemen::query()->orderBy('urut');
                         if (auth()->check()) {
                             $role = auth()->user()->role;
                             if (in_array($role, ['manager', 'kepala_sub_bagian'], true)) {
