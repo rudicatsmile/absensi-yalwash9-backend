@@ -7,66 +7,26 @@ use App\Models\ReligiousStudyEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
+use Exception;
+
 class ReligiousStudyEventController extends Controller
 {
     public function index(Request $request)
     {
         try {
-            $validated = $request->validate([
-                'cancelled' => ['nullable'],
-                'start_date' => ['nullable', 'date_format:Y-m-d'],
-                'end_date' => ['nullable', 'date_format:Y-m-d'],
-                'page' => ['nullable', 'integer', 'min:1'],
-                'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
-                'sort' => ['nullable', 'in:asc,desc'],
-                'search' => ['nullable', 'string', 'max:255'],
-            ]);
+            $cancelledRaw = $request->query('cancelled', 0);
+            $cancelled = is_numeric($cancelledRaw) ? (int) $cancelledRaw : 0;
 
-            $cancelledRaw = $request->query('cancelled', 'false');
-            $cancelledBool = filter_var($cancelledRaw, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
-            if ($cancelledBool === null) {
-                $cancelledBool = false;
-            }
-
-            $page = (int) ($validated['page'] ?? 1);
-            $limit = (int) ($validated['limit'] ?? 10);
-            $sort = $validated['sort'] ?? 'asc';
-            $search = $validated['search'] ?? null;
-            $startDate = $validated['start_date'] ?? null;
-            $endDate = $validated['end_date'] ?? null;
-
-            $query = ReligiousStudyEvent::query()
-                ->where('cancelled', $cancelledBool ? 1 : 0);
-
-            if ($search) {
-                $query->where('title', 'like', '%' . $search . '%');
-            }
-            if ($startDate) {
-                $query->whereDate('event_at', '>=', $startDate);
-            }
-            if ($endDate) {
-                $query->whereDate('event_at', '<=', $endDate);
-            }
-
-            $query->orderBy('event_at', $sort === 'desc' ? 'desc' : 'asc');
-
-            $paginator = $query->paginate($limit, ['*'], 'page', $page);
+            $events = ReligiousStudyEvent::query()
+                ->where('cancelled', $cancelled)
+                ->orderBy('event_at', 'asc')
+                ->get();
 
             return response()->json([
-                'data' => $paginator->items(),
-                'meta' => [
-                    'total' => $paginator->total(),
-                    'per_page' => $paginator->perPage(),
-                    'current_page' => $paginator->currentPage(),
-                    'last_page' => $paginator->lastPage(),
-                ],
-                'params' => [
-                    'cancelled' => $cancelledBool,
-                    'start_date' => $startDate,
-                    'end_date' => $endDate,
-                    'sort' => $sort,
-                    'search' => $search,
-                ],
+                'data' => $events,
+                'params' => ['cancelled' => $cancelled],
                 'message' => 'Daftar event kajian',
             ], 200);
         } catch (\Throwable $e) {
@@ -110,6 +70,25 @@ class ReligiousStudyEventController extends Controller
                 'status' => 'error',
                 'message' => 'Kesalahan server'
             ], 500);
+        }
+    }
+
+    public function showOverlay(): JsonResponse
+    {
+        try {
+            $event = ReligiousStudyEvent::where('isoverlay', '1')
+                ->select('id', 'title', 'image_path')
+                ->first();
+
+            if (!$event) {
+                return response()->json(['message' => 'Overlay event not found.'], 404);
+            }
+
+            return response()->json($event);
+
+        } catch (Exception $e) {
+            Log::error('Error fetching religious study overlay event: ' . $e->getMessage());
+            return response()->json(['message' => 'An error occurred while fetching data.'], 500);
         }
     }
 }

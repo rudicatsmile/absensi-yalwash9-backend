@@ -26,6 +26,7 @@ class ReligiousStudyEvent extends Model
         'jabatan_id',
         'departemen_ids',
         'jabatan_ids',
+        'isoverlay',
     ];
 
     protected static function booted(): void

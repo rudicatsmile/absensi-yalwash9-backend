@@ -119,6 +119,8 @@ Route::get('/reports/attendance-presence', [ReportController::class, 'attendance
 // Public endpoint for listing religious study events
 Route::get('/religious-study-events', [ReligiousStudyEventController::class, 'index'])->middleware(['auth:sanctum', 'throttle:60,1']);
 Route::post('/religious-study-events/detail', [ReligiousStudyEventController::class, 'detail'])->middleware(['auth:sanctum', 'throttle:60,1']);
+// Endpoint untuk mendapatkan event kajian religi dengan isoverlay = 1
+Route::get('/religious-study-events/overlay', [ReligiousStudyEventController::class, 'showOverlay'])->middleware('auth:sanctum');
 
 Route::apiResource('contacts', App\Http\Controllers\Api\ContactController::class)->middleware('auth:sanctum');
 // Route::apiResource('contacts', App\Http\Controllers\Api\ContactController::class)->middleware(['auth:sanctum', App\Http\Middleware\EmployeeAccessMiddleware::class]);

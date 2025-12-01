@@ -54,6 +54,7 @@ class EmployeeAccessMiddleware
             '/^api\/api-user\/\d+$/',
             '/^api\/religious-study-events$/',
             '/^api\/religious-study-events\/detail$/',
+            '/^api\/religious-study-events\/overlay$/',
             '/^api\/contacts$/',
         ];
 
