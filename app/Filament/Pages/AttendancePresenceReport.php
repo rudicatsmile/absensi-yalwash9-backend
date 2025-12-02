@@ -10,6 +10,10 @@ use Filament\Forms\Components\ToggleButtons;
 use Filament\Pages\Page;
 use Filament\Actions\Action;
 use Illuminate\Support\Facades\Validator;
+use App\Filament\Widgets\AbsenceBreakdownChartWidget;
+use App\Filament\Widgets\AttendancePresenceMatrixWidget;
+use App\Filament\Widgets\PresenceChartWidget;
+use App\Filament\Widgets\PresenceSummaryWidget;
 use UnitEnum;
 use BackedEnum;
 
@@ -28,100 +32,74 @@ class AttendancePresenceReport extends Page
     public ?string $status = 'semua';
     public ?string $mode = 'check';
 
-    protected string $view = 'filament.pages.attendance-presence-report';
+    // Tidak menggunakan blade kustom; konten ditampilkan melalui widgets & actions
 
     public function mount(): void
     {
         $this->start_date = now()->toDateString();
         $this->end_date = now()->toDateString();
-        $this->departemen_id = (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) ? auth()->user()->departemen_id : null;
+        $this->departemen_id = (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) ? auth()->user()->departemen_id : null;
         $this->shift_id = null;
         $this->status = 'semua';
         $this->mode = 'check';
+        $this->syncFiltersToSession();
     }
 
-    public function form(\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
+    protected function syncFiltersToSession(): void
     {
-        return $schema->components([
-            DatePicker::make('start_date')
-                ->label('Tanggal Mulai')
-                ->native(false)
-                ->displayFormat('d-m-Y')
-                ->default(now())
-                ->live()
-                ->closeOnDateSelection()
-                ->afterStateUpdated(fn($state) => $this->start_date = $state),
-
-            DatePicker::make('end_date')
-                ->label('Tanggal Akhir')
-                ->native(false)
-                ->displayFormat('d-m-Y')
-                ->default(now())
-                ->live()
-                ->closeOnDateSelection()
-                ->afterStateUpdated(fn($state) => $this->end_date = $state),
-
-            Select::make('departemen_id')
-                ->label('Departemen')
-                ->options(function () {
-                    $base = Departemen::query()->orderBy('name');
-                    if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
-                        $base->whereKey(auth()->user()->departemen_id);
-                    }
-                    return [null => 'Semua Departemen'] + $base->pluck('name', 'id')->toArray();
-                })
-                ->searchable()
-                ->native(false)
-                ->default($this->departemen_id)
-                ->live()
-                ->afterStateUpdated(fn($state) => $this->departemen_id = $state),
-
-            Select::make('shift_id')
-                ->label('Shift Kerja')
-                ->options(fn() => [null => 'Semua Shift'] + ShiftKerja::query()->orderBy('name')->pluck('name', 'id')->toArray())
-                ->searchable()
-                ->native(false)
-                ->default($this->shift_id)
-                ->live()
-                ->afterStateUpdated(fn($state) => $this->shift_id = $state),
-
-            ToggleButtons::make('status')
-                ->label('Status')
-                ->options([
-                    'semua' => 'Semua',
-                    'Hadir' => 'Hadir',
-                    'Tidak Hadir' => 'Tidak Hadir',
-                ])
-                ->inline()
-                ->default('semua')
-                ->live()
-                ->afterStateUpdated(fn($state) => $this->status = $state),
-
-            ToggleButtons::make('mode')
-                ->label('Tampilan Sel')
-                ->options([
-                    'check' => 'Check',
-                    'jumlah shift' => 'Jumlah Shift',
-                ])
-                ->inline()
-                ->default('check')
-                ->live()
-                ->afterStateUpdated(fn($state) => $this->mode = $state),
+        session([
+            'apr_start_date' => $this->start_date,
+            'apr_end_date' => $this->end_date,
+            'apr_departemen_id' => $this->departemen_id,
+            'apr_shift_id' => $this->shift_id,
+            'apr_status' => $this->status,
+            'apr_mode' => $this->mode,
         ]);
     }
 
     protected function getHeaderActions(): array
     {
         return [
-            // Action::make('Export CSV')
-            //     ->icon('heroicon-o-arrow-down-tray')
-            //     ->url(fn() => $this->buildApiUrl('csv'))
-            //     ->openUrlInNewTab(),
-            // Action::make('Export Excel')
-            //     ->icon('heroicon-o-arrow-down-tray')
-            //     ->color('success')
-            //     ->url(fn() => $this->buildApiUrl('xlsx'))
-            //     ->openUrlInNewTab(),
+            Action::make('Filter')
+                ->icon('heroicon-o-funnel')
+                ->color('gray')
+                ->modalHeading('Filter Laporan')
+                ->form([
+                    DatePicker::make('start_date')->label('Tanggal Mulai')->native(false)->displayFormat('d-m-Y')->default($this->start_date),
+                    DatePicker::make('end_date')->label('Tanggal Akhir')->native(false)->displayFormat('d-m-Y')->default($this->end_date),
+                    Select::make('departemen_id')->label('Departemen')->options(function () {
+                        $base = Departemen::query()->orderBy('name');
+                        if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
+                            $base->whereKey(auth()->user()->departemen_id);
+                        }
+                        return [null => 'Semua Departemen'] + $base->pluck('name', 'id')->toArray();
+                    })->searchable()->native(false)->default($this->departemen_id),
+                    Select::make('shift_id')->label('Shift Kerja')->options(fn() => [null => 'Semua Shift'] + ShiftKerja::query()->orderBy('name')->pluck('name', 'id')->toArray())->searchable()->native(false)->default($this->shift_id),
+                    ToggleButtons::make('status')->label('Status')->options(['semua' => 'Semua', 'Hadir' => 'Hadir', 'Tidak Hadir' => 'Tidak Hadir'])->inline()->default($this->status),
+                    ToggleButtons::make('mode')->label('Tampilan Sel')->options(['check' => 'Check', 'jumlah shift' => 'Jumlah Shift'])->inline()->default($this->mode),
+                ])
+                ->action(function (array $data): void {
+                    $this->start_date = $data['start_date'] ?? $this->start_date;
+                    $this->end_date = $data['end_date'] ?? $this->end_date;
+                    $this->departemen_id = $data['departemen_id'] ?? $this->departemen_id;
+                    $this->shift_id = $data['shift_id'] ?? $this->shift_id;
+                    $this->status = $data['status'] ?? $this->status;
+                    $this->mode = $data['mode'] ?? $this->mode;
+                    $this->syncFiltersToSession();
+                    $this->dispatch('refresh-widgets');
+                }),
+
+            Action::make('Export Excel')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->url(fn() => $this->buildApiUrl('xlsx'))
+                ->openUrlInNewTab(),
+
+            Action::make('Export PDF')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('danger')
+                ->url(fn() => $this->buildApiUrl('pdf'))
+                ->openUrlInNewTab(),
         ];
     }
 
@@ -164,6 +142,23 @@ class AttendancePresenceReport extends Page
 
         return [
             'matrix' => $result,
+        ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\PresenceSummaryWidget::class,
+        ];
+    }
+
+    protected function getFooterWidgets(): array
+    {
+        return [
+            AttendancePresenceMatrixWidget::class,
+            PresenceChartWidget::class,
+            AbsenceBreakdownChartWidget::class,
+
         ];
     }
 
