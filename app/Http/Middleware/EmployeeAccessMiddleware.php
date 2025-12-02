@@ -56,6 +56,8 @@ class EmployeeAccessMiddleware
             '/^api\/religious-study-events\/detail$/',
             '/^api\/religious-study-events\/overlay$/',
             '/^api\/contacts$/',
+            '/^api\/meeting-types$/',
+
         ];
 
         foreach ($allowedPatterns as $pattern) {

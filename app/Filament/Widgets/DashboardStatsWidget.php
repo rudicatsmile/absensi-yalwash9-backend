@@ -116,16 +116,24 @@ class DashboardStatsWidget extends BaseWidget
             ->descriptionIcon('heroicon-m-x-circle')
             ->color('danger');
 
-        // Total Izin - filter berdasarkan departemen untuk role tertentu
+        // Total Izin - filter berdasarkan departemen dan shift untuk role tertentu
         $totalIzinQuery = \App\Models\Permit::whereDate('start_date', '<=', $selectedDate)
             ->whereDate('end_date', '>=', $selectedDate);
-        
+
+        // Filter berdasarkan departemen untuk role tertentu
         if ($isDepartmentFiltered) {
             $totalIzinQuery->whereHas('employee', function ($query) use ($userDepartmentId) {
                 $query->where('departemen_id', $userDepartmentId);
             });
         }
-        
+
+        // Filter berdasarkan shift jika dipilih
+        $totalIzinQuery->when($selectedShift, function ($query) use ($selectedShift) {
+            $query->whereHas('employee', function ($subQuery) use ($selectedShift) {
+                $subQuery->where('shift_id', $selectedShift);
+            });
+        });
+
         $totalIzin = $totalIzinQuery->count();
         $stats[] = Stat::make('Total Izin', $totalIzin)
             ->description('Pegawai yang izin')

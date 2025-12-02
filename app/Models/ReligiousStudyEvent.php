@@ -27,6 +27,7 @@ class ReligiousStudyEvent extends Model
         'departemen_ids',
         'jabatan_ids',
         'isoverlay',
+
     ];
 
     protected static function booted(): void
@@ -46,6 +47,7 @@ class ReligiousStudyEvent extends Model
             'notify_at' => 'datetime',
             'cancelled' => 'boolean',
             'notified' => 'boolean',
+            'isoverlay' => 'boolean',
             'departemen_ids' => 'array',
             'jabatan_ids' => 'array',
         ];

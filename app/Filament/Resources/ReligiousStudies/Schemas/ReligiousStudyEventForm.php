@@ -56,6 +56,8 @@ class ReligiousStudyEventForm
 
                     Textarea::make('message')->label('Pesan')->rows(3)->columnSpanFull(),
                     Toggle::make('cancelled')->label('Dibatalkan'),
+                    Toggle::make('isoverlay')->label('Tampilkan Overlay'),
+                    
 
                     FileUpload::make('image_upload')
                         ->label('Upload Gambar')

@@ -76,7 +76,7 @@ class ReligiousStudyEventController extends Controller
     public function showOverlay(): JsonResponse
     {
         try {
-            $event = ReligiousStudyEvent::where('isoverlay', '1')
+            $event = ReligiousStudyEvent::where('isoverlay', 1)
                 ->select('id', 'title', 'image_path')
                 ->first();
 

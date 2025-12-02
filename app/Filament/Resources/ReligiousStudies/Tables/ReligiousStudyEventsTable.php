@@ -26,11 +26,15 @@ class ReligiousStudyEventsTable
         return $table
             ->columns([
                 TextColumn::make('title')->label('Judul')->searchable()->sortable(),
-                TextColumn::make('event_at')->label('Waktu')->dateTime()->sortable(),
-                TextColumn::make('notify_at')->label('Kirim Pada')->dateTime()->sortable(),
-                TextColumn::make('location')->label('Lokasi'),
+
+                TextColumn::make('event_at')
+                    ->label('Waktu & Lokasi')
+                    ->sortable()
+                    ->html()
+                    ->formatStateUsing(fn($record) => $record->event_at->translatedFormat('l, d F Y') . '<br>' . $record->location),
                 // TextColumn::make('departemen_ids')
                 //     ->label('Departemen'),
+                /*
                 TextColumn::make('departemen_ids')
                     ->label('Departemen')
                     ->formatStateUsing(function (ReligiousStudyEvent $record) {
@@ -67,6 +71,7 @@ class ReligiousStudyEventsTable
                         $display = $names->implode(', ');
                         return $names->count() > 1 ? $display . ' (' . $names->count() . ')' : $display;
                     }),
+                    */
                 BadgeColumn::make('cancelled')
                     ->label('Status')
                     ->formatStateUsing(fn($state) => $state ? 'Dibatalkan' : 'Aktif')
@@ -77,6 +82,14 @@ class ReligiousStudyEventsTable
                 BadgeColumn::make('notified')
                     ->label('Sudah Dikirim')
                     ->formatStateUsing(fn($state) => $state ? 'Ya' : 'Belum')
+                    ->colors([
+                        'success' => fn($state) => $state,
+                        'warning' => fn($state) => !$state,
+                    ]),
+
+                BadgeColumn::make('isoverlay')
+                    ->label('Overlay')
+                    ->formatStateUsing(fn($state) => $state ? 'Ya' : 'Tidak')
                     ->colors([
                         'success' => fn($state) => $state,
                         'warning' => fn($state) => !$state,
@@ -143,7 +156,7 @@ class ReligiousStudyEventsTable
                         $jabIds = is_array($record->jabatan_ids) ? $record->jabatan_ids : [];
                         foreach ($jabIds as $jabId) {
                             if ($jabId) {
-                                $ok = app(FcmService::class)->sendToJabatanUsers((int) $jabId, $title, $body, $data);
+                               $ok =  app(FcmService::class)->sendToJabatanUsers((int) $jabId, $title, $body, $data);
                             }
                         }
 
