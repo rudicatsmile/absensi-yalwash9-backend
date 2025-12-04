@@ -115,6 +115,9 @@ Route::get('/meeting-types', [App\Http\Controllers\Api\MeetingTypeController::cl
 Route::get('/dropdown/shift_kerjas', [DropdownController::class, 'shiftKerjas']);
 Route::get('/reports/attendance', [ReportController::class, 'attendanceReport']);
 Route::get('/reports/attendance-presence', [ReportController::class, 'attendancePresenceMatrix']);
+Route::get('/reports/present-employees', [ReportController::class, 'presentEmployees']);
+Route::get('/reports/present-employees', [ReportController::class, 'presentEmployees']);
+Route::get('/reports/absent-employees', [ReportController::class, 'absentEmployees']);
 
 // Public endpoint for listing religious study events
 Route::get('/religious-study-events', [ReligiousStudyEventController::class, 'index'])->middleware(['auth:sanctum', 'throttle:60,1']);
@@ -124,4 +127,3 @@ Route::get('/religious-study-events/overlay', [ReligiousStudyEventController::cl
 
 Route::apiResource('contacts', App\Http\Controllers\Api\ContactController::class)->middleware('auth:sanctum');
 // Route::apiResource('contacts', App\Http\Controllers\Api\ContactController::class)->middleware(['auth:sanctum', App\Http\Middleware\EmployeeAccessMiddleware::class]);
-

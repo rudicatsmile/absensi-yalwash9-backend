@@ -252,13 +252,13 @@ class ReportController extends Controller
                     ],
                     'exported_at' => now()->format('d/m/Y H:i'),
                 ])->setPaper('A4', 'landscape')->setOptions([
-                    'dpi' => 150,
-                    'defaultFont' => 'sans-serif',
-                    'isHtml5ParserEnabled' => true,
-                    'isRemoteEnabled' => true,
-                ]);
+                            'dpi' => 150,
+                            'defaultFont' => 'sans-serif',
+                            'isHtml5ParserEnabled' => true,
+                            'isRemoteEnabled' => true,
+                        ]);
 
-                $filename = 'laporan-kehadiran-'.now()->format('Y-m-d-H-i-s').'.pdf';
+                $filename = 'laporan-kehadiran-' . now()->format('Y-m-d-H-i-s') . '.pdf';
                 return response()->streamDownload(function () use ($pdf) {
                     echo $pdf->output();
                 }, $filename, ['Content-Type' => 'application/pdf']);
@@ -276,21 +276,21 @@ class ReportController extends Controller
                 $sheet->setCellValue('B1', 'Nama');
                 $col = 3;
                 foreach ($result['dates'] as $d) {
-                    $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col).'1', \Carbon\Carbon::parse($d)->format('d-m-Y'));
+                    $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col) . '1', \Carbon\Carbon::parse($d)->format('d-m-Y'));
                     $col++;
                 }
 
                 $rowIndex = 2;
                 foreach ($result['rows'] as $r) {
-                    $sheet->setCellValue('A'.$rowIndex, $r['No']);
-                    $sheet->setCellValue('B'.$rowIndex, $r['Nama']);
+                    $sheet->setCellValue('A' . $rowIndex, $r['No']);
+                    $sheet->setCellValue('B' . $rowIndex, $r['Nama']);
                     $col = 3;
                     foreach ($result['dates'] as $d) {
                         $cell = $r[$d] ?? ['count' => 0, 'present' => false, 'permit_type_id' => null];
                         $val = $result['mode'] === 'check'
                             ? ($cell['present'] ? '✔' : ($cell['permit_type_id'] ? 'ℹ' : '✖'))
                             : ($cell['count'] ?? 0);
-                        $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col).$rowIndex, $val);
+                        $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col) . $rowIndex, $val);
                         $col++;
                     }
                     $rowIndex++;
@@ -300,10 +300,10 @@ class ReportController extends Controller
                     $sheet->getColumnDimension($colLetter)->setAutoSize(true);
                 }
                 $sheet->freezePane('C2');
-                $sheet->getStyle('A1:'.\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($result['dates']) + 2).'1')->getFont()->setBold(true);
+                $sheet->getStyle('A1:' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($result['dates']) + 2) . '1')->getFont()->setBold(true);
 
                 $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-                $filename = 'laporan-kehadiran-'.now()->format('Y-m-d-H-i-s').'.xlsx';
+                $filename = 'laporan-kehadiran-' . now()->format('Y-m-d-H-i-s') . '.xlsx';
                 return response()->streamDownload(function () use ($writer) {
                     $writer->save('php://output');
                 }, $filename, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
@@ -323,6 +323,221 @@ class ReportController extends Controller
                 'mode' => $mode,
             ],
             'data' => $result,
+        ], 200);
+    }
+
+    public function presentEmployees(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_date' => ['required', 'date_format:Y-m-d'],
+            'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+            'departemen_id' => ['nullable', 'integer', 'exists:departemens,id'],
+            'shift_id' => ['nullable', 'integer', 'exists:shift_kerjas,id'],
+            'q' => ['nullable', 'string'],
+            'sort' => ['nullable', 'in:name,departemen_name,total_hadir'],
+            'dir' => ['nullable', 'in:asc,desc'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:1000'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Parameter tidak valid',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $start = $request->input('start_date');
+        $end = $request->input('end_date');
+        $departemenId = $request->input('departemen_id');
+        $shiftId = $request->input('shift_id');
+        $q = trim((string) $request->input('q', ''));
+        $sort = $request->input('sort', 'name');
+        $dir = strtolower($request->input('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $page = (int) $request->input('page', 1);
+        $perPage = (int) $request->input('per_page', 10);
+
+        $base = DB::table('users')
+            ->join('attendances', 'users.id', '=', 'attendances.user_id')
+            ->leftJoin('departemens', 'users.departemen_id', '=', 'departemens.id')
+            ->whereBetween('attendances.date', [$start, $end])
+            ->when($departemenId, fn($q2) => $q2->where('users.departemen_id', (int) $departemenId))
+            ->when($shiftId, fn($q2) => $q2->where('attendances.shift_id', (int) $shiftId))
+            ->when($q !== '', fn($q2) => $q2->where('users.name', 'like', '%' . $q . '%'));
+
+        $total = (clone $base)->selectRaw('COUNT(DISTINCT users.id) as aggregate')->value('aggregate') ?? 0;
+
+        $rows = (clone $base)
+            ->select([
+                'users.id',
+                'users.name',
+                DB::raw('COUNT(DISTINCT attendances.date) as total_hadir'),
+                DB::raw('COALESCE(departemens.name, "-") as departemen_name'),
+            ])
+            ->groupBy('users.id', 'users.name', 'users.departemen_id', 'departemens.name')
+            ->orderBy(match ($sort) {
+                'departemen_name' => DB::raw('COALESCE(departemens.name, "-")'),
+                'total_hadir' => DB::raw('total_hadir'),
+                default => 'users.name',
+            }, $dir)
+            ->offset(max(0, ($page - 1) * $perPage))
+            ->limit($perPage)
+            ->get();
+
+        return response()->json([
+            'message' => 'OK',
+            'filters' => [
+                'start_date' => $start,
+                'end_date' => $end,
+                'departemen_id' => $departemenId,
+                'shift_id' => $shiftId,
+            ],
+            'pagination' => [
+                'total' => (int) $total,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total_pages' => (int) ceil(($total ?: 0) / max(1, $perPage)),
+            ],
+            'data' => $rows,
+        ], 200);
+    }
+
+    public function absentEmployees(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_date' => ['required', 'date_format:Y-m-d'],
+            'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+            'departemen_id' => ['nullable', 'integer', 'exists:departemens,id'],
+            'shift_id' => ['nullable', 'integer', 'exists:shift_kerjas,id'],
+            'q' => ['nullable', 'string'],
+            'sort' => ['nullable', 'in:name,departemen_name,jabatan_name,total_alpa'],
+            'dir' => ['nullable', 'in:asc,desc'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:1000'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Parameter tidak valid',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $start = $request->input('start_date');
+        $end = $request->input('end_date');
+        $departemenId = $request->input('departemen_id');
+        $shiftId = $request->input('shift_id');
+        $q = trim((string) $request->input('q', ''));
+        $sort = $request->input('sort', 'name');
+        $dir = strtolower($request->input('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $page = (int) $request->input('page', 1);
+        $perPage = (int) $request->input('per_page', 10);
+
+        $dates = [];
+        $cur = $start;
+        while ($cur <= $end) {
+            $dates[] = $cur;
+            $cur = date('Y-m-d', strtotime($cur . ' +1 day'));
+        }
+
+        $users = DB::table('users')
+            ->leftJoin('departemens', 'users.departemen_id', '=', 'departemens.id')
+            ->leftJoin('jabatans', 'users.jabatan_id', '=', 'jabatans.id')
+            ->select([
+                'users.id',
+                'users.name',
+                DB::raw('COALESCE(departemens.name, "-") as departemen_name'),
+                DB::raw('COALESCE(jabatans.name, "-") as jabatan_name'),
+            ])
+            ->when($departemenId, fn($q2) => $q2->where('users.departemen_id', (int) $departemenId))
+            ->when($q !== '', fn($q2) => $q2->where('users.name', 'like', '%' . $q . '%'))
+            ->get();
+
+        $attRaw = DB::table('attendances')
+            ->select(['user_id', 'date'])
+            ->whereBetween('date', [$start, $end])
+            ->when($shiftId, fn($q2) => $q2->where('shift_id', (int) $shiftId))
+            ->get();
+
+        $attIndex = [];
+        foreach ($attRaw as $a) {
+            $attIndex[$a->user_id . '|' . $a->date] = true;
+        }
+
+        $permits = DB::table('permits')
+            ->select(['employee_id', 'start_date', 'end_date', 'status'])
+            ->where('status', 'approved')
+            ->whereDate('end_date', '>=', $start)
+            ->whereDate('start_date', '<=', $end)
+            ->get();
+
+        $permitIndex = [];
+        foreach ($permits as $p) {
+            $ps = $p->start_date;
+            $pe = $p->end_date;
+            $cur2 = $ps < $start ? $start : $ps;
+            $end2 = $pe > $end ? $end : $pe;
+            while ($cur2 <= $end2) {
+                $permitIndex[$p->employee_id . '|' . $cur2] = true;
+                $cur2 = date('Y-m-d', strtotime($cur2 . ' +1 day'));
+            }
+        }
+
+        $rows = [];
+        foreach ($users as $u) {
+            $alpa = 0;
+            foreach ($dates as $d) {
+                $key = $u->id . '|' . $d;
+                $present = isset($attIndex[$key]);
+                $permitted = isset($permitIndex[$key]);
+                if (!$present && !$permitted) {
+                    $alpa++;
+                }
+            }
+            if ($alpa > 0) {
+                $rows[] = [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'departemen_name' => $u->departemen_name,
+                    'jabatan_name' => $u->jabatan_name,
+                    'reason' => 'Alpa',
+                    'total_alpa' => $alpa,
+                ];
+            }
+        }
+
+        if (!empty($rows)) {
+            usort($rows, function ($a, $b) use ($sort, $dir) {
+                $av = $a[$sort] ?? null;
+                $bv = $b[$sort] ?? null;
+                if ($sort === 'total_alpa') {
+                    $cmp = ($av <=> $bv);
+                } else {
+                    $cmp = strcasecmp((string) $av, (string) $bv);
+                }
+                return $dir === 'desc' ? -$cmp : $cmp;
+            });
+        }
+
+        $total = count($rows);
+        $offset = max(0, ($page - 1) * $perPage);
+        $paged = array_slice($rows, $offset, $perPage);
+
+        return response()->json([
+            'message' => 'OK',
+            'filters' => [
+                'start_date' => $start,
+                'end_date' => $end,
+                'departemen_id' => $departemenId,
+                'shift_id' => $shiftId,
+            ],
+            'pagination' => [
+                'total' => (int) $total,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total_pages' => (int) ceil(($total ?: 0) / max(1, $perPage)),
+            ],
+            'data' => $paged,
         ], 200);
     }
 }
