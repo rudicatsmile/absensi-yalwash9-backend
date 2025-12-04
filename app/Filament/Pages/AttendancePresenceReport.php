@@ -126,6 +126,9 @@ class AttendancePresenceReport extends Page
             'mode' => ['required', 'in:check,jumlah shift'],
         ])->validate();
 
+        if ($export !== null) {
+            $data['format'] = $export;
+        }
         $query = http_build_query(array_filter($data, fn($v) => $v !== null && $v !== ''));
         $url = url('/api/reports/attendance-presence') . '?' . $query;
         return $url;
