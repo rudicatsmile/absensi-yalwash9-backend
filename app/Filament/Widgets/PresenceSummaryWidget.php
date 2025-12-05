@@ -53,7 +53,16 @@ class PresenceSummaryWidget extends BaseWidget
             Stat::make('Izin', $absentByPermit)
                 ->description('Jumlah hari berizin')
                 ->descriptionIcon('heroicon-m-information-circle')
-                ->color('info'),
+                ->color('info')
+                ->url(fn() => \Filament\Support\original_request()->fullUrlWithQuery(['action' => 'viewPermitEmployees']))
+                ->action(
+                    Action::make('viewPermitEmployees')
+                        ->label('Lihat Pegawai Berizin')
+                        ->modalHeading('Daftar Pegawai Berizin')
+                        ->modalContent(fn() => new HtmlString($this->getPermitEmployeesTable()))
+                        ->modalSubmitAction(false)
+                        ->modalCancelAction(fn(Action $action) => $action->label('Tutup'))
+                ),
 
             Stat::make('Tidak Hadir', $absentUnexcused)
                 ->description('Jumlah hari tanpa keterangan')
@@ -165,6 +174,64 @@ class PresenceSummaryWidget extends BaseWidget
             . '<td class="fi-table-cell p-3" x-text="employee.departemen_name"></td>'
             . '<td class="fi-table-cell p-3" x-text="employee.jabatan_name"></td>'
             . '<td class="fi-table-cell p-3" x-text="employee.reason || \"Alpa\""></td>'
+            . '</tr>'
+            . '</template>'
+            . '</tbody>'
+            . '</table>'
+            . '<div class="flex items-center justify-between p-3">'
+            . '<div class="flex items-center gap-2">'
+            . '<button type="button" class="fi-btn px-2 py-1 text-sm" @click="goto(page-1)" :disabled="page<=1">Sebelumnya</button>'
+            . '<span class="text-sm" x-text="page + \" / \" + totalPages()"></span>'
+            . '<button type="button" class="fi-btn px-2 py-1 text-sm" @click="goto(page+1)" :disabled="page>=totalPages()">Berikutnya</button>'
+            . '</div>'
+            . '<span class="text-sm" x-show="loading">Memuat...</span>'
+            . '<span class="text-sm text-red-600" x-show="error" x-text="error"></span>'
+            . '</div>'
+            . '</div>';
+
+        return $table;
+    }
+
+    protected function getPermitEmployeesTable(): string
+    {
+        $filters = [
+            'start_date' => session('apr_start_date') ?? now()->toDateString(),
+            'end_date' => session('apr_end_date') ?? now()->toDateString(),
+            'departemen_id' => session('apr_departemen_id'),
+            'shift_id' => session('apr_shift_id'),
+        ];
+        $filtersJson = json_encode($filters, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $table = '<div class="fi-table-con w-full max-w-full overflow-x-auto rounded-lg shadow ring-1 ring-gray-950/5 dark:ring-white/10" x-data=\'{"rows": [], "total": 0, "page": 1, "perPage": 10, "sort": "name", "dir": "asc", "q": "", "filters": ' . $filtersJson . ', "loading": false, "error": null, async "load"(){ try { this.loading=true; this.error=null; const base = { start_date: this.filters.start_date, end_date: this.filters.end_date, q: this.q, sort: this.sort, dir: this.dir, page: this.page, per_page: this.perPage }; if (this.filters.departemen_id !== null && this.filters.departemen_id !== undefined && this.filters.departemen_id !== "") { base.departemen_id = this.filters.departemen_id; } if (this.filters.shift_id !== null && this.filters.shift_id !== undefined && this.filters.shift_id !== "") { base.shift_id = this.filters.shift_id; } const params = new URLSearchParams(base); const url = window.location.origin + "/api/reports/permit-employees?" + params.toString(); const res = await fetch(url); const json = await res.json(); if (!res.ok) { this.error = (json && json.message) ? json.message : "Gagal memuat"; this.rows = []; this.total = 0; } else { this.rows = json.data || []; this.total = (json.pagination && json.pagination.total) ? json.pagination.total : this.rows.length; } } catch(e) { this.error = "Gagal memuat"; this.rows = []; this.total = 0; } finally { this.loading=false; } }, "setSort"(key){ if(this.sort===key){ this.dir=this.dir==="asc"?"desc":"asc"; } else { this.sort=key; this.dir="asc"; } this.page=1; this.load(); }, "totalPages"(){ return Math.max(1, Math.ceil(this.total/this.perPage)); }, "goto"(p){ if(p<1||p>this.totalPages()) return; this.page=p; this.load(); }}\' x-init="load()">'
+            . '<div class="flex items-center justify-between p-3">'
+            . '<input type="text" class="fi-input text-sm w-64" placeholder="Cari nama..." x-model.debounce.300ms="q" @input="page=1; load()">'
+            . '<div class="flex items-center gap-2">'
+            . '<span class="text-sm">Baris per halaman</span>'
+            . '<select class="fi-input text-sm" x-model.number="perPage" @change="page=1; load()">'
+            . '<option value="10">10</option>'
+            . '<option value="20">20</option>'
+            . '<option value="50">50</option>'
+            . '</select>'
+            . '</div>'
+            . '</div>'
+            . '<table class="fi-table w-full min-w-full table-auto divide-y divide-gray-200 text-start dark:divide-white/5">'
+            . '<thead class="bg-gray-50 dark:bg-white/5">'
+            . '<tr>'
+            . '<th class="fi-table-header-cell p-3 text-left">No</th>'
+            . '<th class="fi-table-header-cell p-3 text-left cursor-pointer" @click="setSort(\'name\')">Nama Pegawai <span x-show="sort===\'name\'" class="ml-1" x-text="dir===\'asc\'?\'↑\':\'↓\'"></span></th>'
+            . '<th class="fi-table-header-cell p-3 text-left cursor-pointer" @click="setSort(\'departemen_name\')">Departemen <span x-show="sort===\'departemen_name\'" class="ml-1" x-text="dir===\'asc\'?\'↑\':\'↓\'"></span></th>'
+            . '<th class="fi-table-header-cell p-3 text-left cursor-pointer" @click="setSort(\'jabatan_name\')">Jabatan <span x-show="sort===\'jabatan_name\'" class="ml-1" x-text="dir===\'asc\'?\'↑\':\'↓\'"></span></th>'
+            . '<th class="fi-table-header-cell p-3 text-left cursor-pointer" @click="setSort(\'total_izin\')">Total Izin <span x-show="sort===\'total_izin\'" class="ml-1" x-text="dir===\'asc\'?\'↑\':\'↓\'"></span></th>'
+            . '</tr>'
+            . '</thead>'
+            . '<tbody class="divide-y divide-gray-200 whitespace-nowrap dark:divide-white/5">'
+            . '<template x-for="(employee, index) in rows" :key="employee.id || (employee.name + index)">'
+            . '<tr>'
+            . '<td class="fi-table-cell p-3" x-text="(page-1)*perPage + index + 1"></td>'
+            . '<td class="fi-table-cell p-3" x-text="employee.name"></td>'
+            . '<td class="fi-table-cell p-3" x-text="employee.departemen_name"></td>'
+            . '<td class="fi-table-cell p-3" x-text="employee.jabatan_name"></td>'
+            . '<td class="fi-table-cell p-3" x-text="employee.total_izin"></td>'
             . '</tr>'
             . '</template>'
             . '</tbody>'

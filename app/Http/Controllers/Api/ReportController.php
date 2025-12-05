@@ -402,6 +402,118 @@ class ReportController extends Controller
         ], 200);
     }
 
+    public function permitEmployees(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_date' => ['required', 'date_format:Y-m-d'],
+            'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+            'departemen_id' => ['nullable', 'integer', 'exists:departemens,id'],
+            'shift_id' => ['nullable', 'integer', 'exists:shift_kerjas,id'],
+            'q' => ['nullable', 'string'],
+            'sort' => ['nullable', 'in:name,departemen_name,jabatan_name,total_izin'],
+            'dir' => ['nullable', 'in:asc,desc'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:1000'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Parameter tidak valid',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $start = $request->input('start_date');
+        $end = $request->input('end_date');
+        $departemenId = $request->input('departemen_id');
+        $shiftId = $request->input('shift_id');
+        $q = trim((string) $request->input('q', ''));
+        $sort = $request->input('sort', 'name');
+        $dir = strtolower($request->input('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $page = (int) $request->input('page', 1);
+        $perPage = (int) $request->input('per_page', 10);
+
+        $users = DB::table('users')
+            ->leftJoin('departemens', 'users.departemen_id', '=', 'departemens.id')
+            ->leftJoin('jabatans', 'users.jabatan_id', '=', 'jabatans.id')
+            ->select([
+                'users.id',
+                'users.name',
+                DB::raw('COALESCE(departemens.name, "-") as departemen_name'),
+                DB::raw('COALESCE(jabatans.name, "-") as jabatan_name'),
+            ])
+            ->when($departemenId, fn($q2) => $q2->where('users.departemen_id', (int) $departemenId))
+            ->when($q !== '', fn($q2) => $q2->where('users.name', 'like', '%' . $q . '%'))
+            ->get();
+
+        $permits = DB::table('permits')
+            ->select(['employee_id', 'start_date', 'end_date', 'status'])
+            ->where('status', 'approved')
+            ->whereDate('end_date', '>=', $start)
+            ->whereDate('start_date', '<=', $end)
+            ->get();
+
+        $permitDays = [];
+        foreach ($permits as $p) {
+            $ps = $p->start_date;
+            $pe = $p->end_date;
+            $cur2 = $ps < $start ? $start : $ps;
+            $end2 = $pe > $end ? $end : $pe;
+            while ($cur2 <= $end2) {
+                $permitDays[$p->employee_id][$cur2] = true;
+                $cur2 = date('Y-m-d', strtotime($cur2 . ' +1 day'));
+            }
+        }
+
+        $rows = [];
+        foreach ($users as $u) {
+            $count = isset($permitDays[$u->id]) ? count($permitDays[$u->id]) : 0;
+            if ($count > 0) {
+                $rows[] = [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'departemen_name' => $u->departemen_name,
+                    'jabatan_name' => $u->jabatan_name,
+                    'total_izin' => $count,
+                ];
+            }
+        }
+
+        if (!empty($rows)) {
+            usort($rows, function ($a, $b) use ($sort, $dir) {
+                $av = $a[$sort] ?? null;
+                $bv = $b[$sort] ?? null;
+                if ($sort === 'total_izin') {
+                    $cmp = ($av <=> $bv);
+                } else {
+                    $cmp = strcasecmp((string) $av, (string) $bv);
+                }
+                return $dir === 'desc' ? -$cmp : $cmp;
+            });
+        }
+
+        $total = count($rows);
+        $offset = max(0, ($page - 1) * $perPage);
+        $paged = array_slice($rows, $offset, $perPage);
+
+        return response()->json([
+            'message' => 'OK',
+            'filters' => [
+                'start_date' => $start,
+                'end_date' => $end,
+                'departemen_id' => $departemenId,
+                'shift_id' => $shiftId,
+            ],
+            'pagination' => [
+                'total' => (int) $total,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total_pages' => (int) ceil(($total ?: 0) / max(1, $perPage)),
+            ],
+            'data' => $paged,
+        ], 200);
+    }
+
     public function absentEmployees(Request $request)
     {
         $validator = Validator::make($request->all(), [

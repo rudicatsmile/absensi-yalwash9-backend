@@ -15,6 +15,7 @@
         th{background:#f1f5f9; font-weight:600; font-size:11px}
         td.text-left{ text-align:left }
         .footer-right{ float:right }
+        .pagenum:before{ content: counter(page); }
     </style>
 </head>
 <body>
