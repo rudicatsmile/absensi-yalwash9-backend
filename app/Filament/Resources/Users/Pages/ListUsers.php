@@ -40,34 +40,32 @@ class ListUsers extends ListRecords
             $sheet->setCellValue('B' . $row, $filters);
             $row += 2;
 
-            $sheet->setCellValue('A' . $row, 'Avatar URL');
-            $sheet->setCellValue('B' . $row, 'Nama / Email');
+            $sheet->setCellValue('A' . $row, 'Nama');
+            $sheet->setCellValue('B' . $row, 'Email');
             $sheet->setCellValue('C' . $row, 'Unit Kerja');
             $sheet->setCellValue('D' . $row, 'Shift Kerja');
             $sheet->setCellValue('E' . $row, 'Lokasi');
-            $sheet->setCellValue('F' . $row, 'Dibuat');
-            $sheet->getStyle('A' . $row . ':F' . $row)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row . ':E' . $row)->getFont()->setBold(true);
             $row++;
 
             foreach ($users as $u) {
-                $avatarUrl = $u->image_url ? (str_starts_with($u->image_url, 'http') ? $u->image_url : asset('storage/' . ltrim($u->image_url, '/'))) : '';
-                $nameEmail = ($u->name ?? '') . "\n" . ($u->email ?? '');
+                $name = ($u->name ?? '');
+                $email = ($u->email ?? '');
                 $dept = $u->departemen->name ?? 'Belum diset';
                 $shift = ($u->shiftKerjas?->pluck('name')->filter()->all() ?? []);
                 $shiftStr = count($shift) ? implode(', ', $shift) : 'Belum diset';
                 $locs = ($u->companyLocations?->pluck('name')->filter()->all() ?? []);
                 $locStr = count($locs) ? implode(', ', $locs) : 'Belum diset';
 
-                $sheet->setCellValueExplicit('A' . $row, $avatarUrl, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-                $sheet->setCellValue('B' . $row, $nameEmail);
+                $sheet->setCellValue('A' . $row, $name);
+                $sheet->setCellValue('B' . $row, $email);
                 $sheet->setCellValue('C' . $row, $dept);
                 $sheet->setCellValue('D' . $row, $shiftStr);
                 $sheet->setCellValue('E' . $row, $locStr);
-                $sheet->setCellValue('F' . $row, optional($u->created_at)->format('d/m/Y H:i'));
                 $row++;
             }
 
-            foreach (range('A', 'F') as $col) {
+            foreach (range('A', 'E') as $col) {
                 $sheet->getColumnDimension($col)->setAutoSize(true);
             }
 
@@ -157,8 +155,10 @@ class ListUsers extends ListRecords
                 $deptName = $dept?->name;
             }
             $parts = [];
-            if ($role) $parts[] = 'Role: ' . $role;
-            if ($deptName) $parts[] = 'Departemen: ' . $deptName;
+            if ($role)
+                $parts[] = 'Role: ' . $role;
+            if ($deptName)
+                $parts[] = 'Departemen: ' . $deptName;
             return count($parts) ? implode(' • ', $parts) : 'Tidak ada filter';
         } catch (\Throwable $e) {
             return 'Tidak ada filter';
