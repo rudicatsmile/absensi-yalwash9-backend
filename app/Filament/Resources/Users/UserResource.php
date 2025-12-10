@@ -68,8 +68,9 @@ class UserResource extends Resource
 
     public static function canCreate(): bool
     {
-        if (! auth()->check()) return false;
-        return in_array(auth()->user()->role, ['admin','kepala_lembaga','manager'], true);
+        if (!auth()->check())
+            return false;
+        return in_array(auth()->user()->role, ['admin', 'kepala_lembaga', 'manager'], true);
     }
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
@@ -82,9 +83,9 @@ class UserResource extends Resource
                 if ($role === 'employee') {
                     return $query->where('id', auth()->id());
                 }
-                if (in_array($role, ['manager','kepala_sub_bagian'], true)) {
+                if (in_array($role, ['manager', 'kepala_sub_bagian'], true)) {
                     $dept = auth()->user()->departemen_id;
-                    if (! $dept) {
+                    if (!$dept) {
                         \Log::warning('audit:user.query.error', ['actor' => auth()->id(), 'reason' => 'departemen_id null']);
                         return $query->whereRaw('1 = 0');
                     }

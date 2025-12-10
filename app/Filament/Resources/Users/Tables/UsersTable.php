@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Tables;
 
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -129,6 +130,22 @@ class UsersTable
                         if ($id && \App\Models\Departemen::whereKey($id)->exists()) {
                             $query->where('departemen_id', $id);
                         }
+                    }),
+            ])
+            ->headerActions([
+                Action::make('export_excel')
+                    ->label('Export Excel')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success')
+                    ->action(function (\Livewire\Component $livewire) {
+                        return $livewire->exportUsersExcel();
+                    }),
+                Action::make('export_pdf')
+                    ->label('Export PDF')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('danger')
+                    ->action(function (\Livewire\Component $livewire) {
+                        return $livewire->exportUsersPdf();
                     }),
             ])
             ->recordActions([
