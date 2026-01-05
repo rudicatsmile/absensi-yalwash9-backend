@@ -15,8 +15,11 @@ use Filament\Resources\Resource;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 class ManualAttendanceResource extends Resource
@@ -37,6 +40,106 @@ class ManualAttendanceResource extends Resource
                     ->select(['id', 'name', 'email', 'departemen_id'])
                     ->orderBy('nip', 'asc')
             )
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
+            ->filtersFormColumns(2)
+            ->filters([
+                Filter::make('date_filter')
+                    ->form([
+                        \Filament\Forms\Components\DatePicker::make('date')
+                            ->label('Tanggal')
+                            ->default(now())
+                            ->native(false)
+                            ->displayFormat('d-m-Y')
+                            ->closeOnDateSelection()
+                            ->live()
+                            ->required(),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $date = $data['date'] ?? now()->toDateString();
+                        return $query; // Filter query sebenarnya tidak diperlukan karena kita memfilter relasi di kolom status, tapi kita simpan filternya untuk state.
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $date = $data['date'] ?? null;
+                        if (!$date)
+                            return [];
+                        return ['Tanggal: ' . \Carbon\Carbon::parse($date)->format('d-m-Y')];
+                    }),
+                SelectFilter::make('departemen_id')
+                    ->label('Departemen')
+                    ->options(\App\Models\Departemen::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                    ->searchable()
+                    ->preload()
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+                        if (!is_numeric($value)) {
+                            return $query;
+                        }
+                        return $query->where('departemen_id', (int) $value);
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $value = $data['value'] ?? null;
+                        if (!$value) {
+                            return [];
+                        }
+                        $name = \App\Models\Departemen::query()->whereKey($value)->value('name');
+                        return $name ? ['Departemen: ' . $name] : [];
+                    }),
+                SelectFilter::make('shift_kerja_id')
+                    ->label('Shift Kerja')
+                    ->options(\App\Models\ShiftKerja::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                    ->searchable()
+                    ->preload()
+                    ->default(fn() => \App\Models\ShiftKerja::where('name', 'Satu Shift')->value('id'))
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query; // Filter query sebenarnya tidak diperlukan karena kita memfilter relasi di kolom status
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $value = $data['value'] ?? null;
+                        if (!$value) {
+                            return [];
+                        }
+                        $name = \App\Models\ShiftKerja::query()->whereKey($value)->value('name');
+                        return $name ? ['Shift: ' . $name] : [];
+                    }),
+                Filter::make('presence_status')
+                    ->label('Kehadiran')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('status')
+                            ->label('Status Kehadiran')
+                            ->options([
+                                'attended' => 'Sudah Absen',
+                                'not_attended' => 'Belum Absen',
+                            ]),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $status = $data['status'] ?? null;
+                        if (!$status)
+                            return $query;
+
+                        // Ambil tanggal dari filter 'date_filter', jika tidak ada gunakan hari ini
+                        $tableFilters = request()->input('tableFilters', []);
+                        $date = $tableFilters['date_filter']['date'] ?? now()->toDateString();
+
+                        if ($status === 'attended') {
+                            return $query->whereHas('attendances', function ($q) use ($date) {
+                                $q->whereDate('date', $date);
+                            });
+                        } elseif ($status === 'not_attended') {
+                            return $query->whereDoesntHave('attendances', function ($q) use ($date) {
+                                $q->whereDate('date', $date);
+                            });
+                        }
+
+                        return $query;
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (($data['status'] ?? null) === 'attended')
+                            return 'Sudah Absen';
+                        if (($data['status'] ?? null) === 'not_attended')
+                            return 'Belum Absen';
+                        return null;
+                    }),
+            ])
             ->columns([
                 TextColumn::make('name')
                     ->label('Nama Pegawai')
@@ -46,15 +149,87 @@ class ManualAttendanceResource extends Resource
                     ->label('Unit Kerja')
                     ->sortable()
                     ->placeholder('Belum diset'),
+                TextColumn::make('attendance_location')
+                    ->label('Lokasi Absen')
+                    ->state(function (User $record, \Livewire\Component $livewire): ?string {
+                        $filters = $livewire->tableFilters ?? [];
+                        $dateInput = $filters['date_filter']['date'] ?? now()->toDateString();
+                        $shiftId = $filters['shift_kerja_id']['value'] ?? null;
+                        $date = null;
+                        try {
+                            $date = \Carbon\Carbon::parse($dateInput)->toDateString();
+                        } catch (\Throwable $e) {
+                            $date = now()->toDateString();
+                        }
+
+                        $query = \App\Models\Attendance::query()
+                            ->with('companyLocation')
+                            ->where('user_id', $record->id)
+                            ->whereDate('date', $date);
+
+                        if ($shiftId) {
+                            $query->where('shift_id', $shiftId);
+                        }
+
+                        $att = $query->first();
+
+                        return $att?->companyLocation?->name ?? '-';
+                    }),
+                TextColumn::make('shift_kerja')
+                    ->label('Shift Kerja')
+                    ->state(function (User $record, \Livewire\Component $livewire): ?string {
+                        $filters = $livewire->tableFilters ?? [];
+                        $dateInput = $filters['date_filter']['date'] ?? now()->toDateString();
+                        $shiftId = $filters['shift_kerja_id']['value'] ?? null;
+                        $date = null;
+                        try {
+                            $date = \Carbon\Carbon::parse($dateInput)->toDateString();
+                        } catch (\Throwable $e) {
+                            $date = now()->toDateString();
+                        }
+
+                        $query = \App\Models\Attendance::query()
+                            ->with('shift')
+                            ->where('user_id', $record->id)
+                            ->whereDate('date', $date);
+
+                        if ($shiftId) {
+                            $query->where('shift_id', $shiftId);
+                        }
+
+                        $att = $query->first();
+
+                        return $att?->shift?->name ?? '-';
+                    }),
                 BadgeColumn::make('attendance_status')
                     ->label('Status Absen')
-                    ->state(function (User $record): ?string {
-                        $att = \App\Models\Attendance::query()
-                            ->where('user_id', $record->id)
-                            ->whereDate('date', now()->toDateString())
-                            ->first();
+                    ->state(function (User $record, \Livewire\Component $livewire): ?string {
+                        // Ambil tanggal dari filter, default ke hari ini
+                        $filters = $livewire->tableFilters ?? [];
+                        $dateInput = $filters['date_filter']['date'] ?? now()->toDateString();
+                        $shiftId = $filters['shift_kerja_id']['value'] ?? null;
+                        $date = null;
+                        try {
+                            $date = \Carbon\Carbon::parse($dateInput)->toDateString();
+                        } catch (\Throwable $e) {
+                            $date = now()->toDateString();
+                        }
+
+                        try {
+                            $query = \App\Models\Attendance::query()
+                                ->where('user_id', $record->id)
+                                ->whereDate('date', $date);
+
+                            if ($shiftId) {
+                                $query->where('shift_id', $shiftId);
+                            }
+
+                            $att = $query->first();
+                        } catch (\Throwable $e) {
+                            return 'Gagal Memuat';
+                        }
                         if (!$att)
-                            return null;
+                            return '-';
                         $time = $att->time_in ? substr((string) $att->time_in, 0, 5) : '-';
                         $map = [
                             'on_time' => 'Hadir',
@@ -65,13 +240,33 @@ class ManualAttendanceResource extends Resource
                         $label = $map[$att->status] ?? $att->status;
                         return $label . ' (' . $time . ')';
                     })
-                    ->color(function (User $record): ?string {
-                        $att = \App\Models\Attendance::query()
-                            ->where('user_id', $record->id)
-                            ->whereDate('date', now()->toDateString())
-                            ->first();
+                    ->color(function (User $record, \Livewire\Component $livewire): ?string {
+                        // Ambil tanggal dari filter, default ke hari ini
+                        $filters = $livewire->tableFilters ?? [];
+                        $dateInput = $filters['date_filter']['date'] ?? now()->toDateString();
+                        $shiftId = $filters['shift_kerja_id']['value'] ?? null;
+                        $date = null;
+                        try {
+                            $date = \Carbon\Carbon::parse($dateInput)->toDateString();
+                        } catch (\Throwable $e) {
+                            $date = now()->toDateString();
+                        }
+
+                        try {
+                            $query = \App\Models\Attendance::query()
+                                ->where('user_id', $record->id)
+                                ->whereDate('date', $date);
+
+                            if ($shiftId) {
+                                $query->where('shift_id', $shiftId);
+                            }
+
+                            $att = $query->first();
+                        } catch (\Throwable $e) {
+                            return 'danger';
+                        }
                         if (!$att)
-                            return null;
+                            return 'warning'; // Warna kuning/oranye untuk "Belum Absen"
                         return match ($att->status) {
                             'on_time' => 'success',
                             'late' => 'danger',
@@ -86,11 +281,21 @@ class ManualAttendanceResource extends Resource
                     ->label('Kehadiran')
                     ->icon('heroicon-o-hand-thumb-up')
                     ->modalHeading('Ubah Status Kehadiran')
-                    ->visible(function (User $record) {
-                        return !\App\Models\Attendance::query()
+                    ->visible(function (User $record, \Livewire\Component $livewire) {
+                        $filters = $livewire->tableFilters ?? [];
+                        $dateInput = $filters['date_filter']['date'] ?? now()->toDateString();
+                        $shiftId = $filters['shift_kerja_id']['value'] ?? null;
+                        $date = \Carbon\Carbon::parse($dateInput)->toDateString();
+
+                        $query = \App\Models\Attendance::query()
                             ->where('user_id', $record->id)
-                            ->whereDate('date', now()->toDateString())
-                            ->exists();
+                            ->whereDate('date', $date);
+
+                        if ($shiftId) {
+                            $query->where('shift_id', $shiftId);
+                        }
+
+                        return !$query->exists();
                     })
                     ->form([
                         ToggleButtons::make('status')
@@ -165,8 +370,21 @@ class ManualAttendanceResource extends Resource
                             ->required(fn($get) => $get('status') === 'permit'),
                     ])
                     ->requiresConfirmation()
-                    ->action(function (User $record, array $data) {
-                        $today = now()->toDateString();
+                    ->action(function (User $record, array $data, \Livewire\Component $livewire) {
+                        $filters = $livewire->tableFilters ?? [];
+                        $dateInput = $filters['date_filter']['date'] ?? now()->toDateString();
+                        $targetDate = \Carbon\Carbon::parse($dateInput)->toDateString();
+
+                        // Validasi Departemen User (Requirement: Handle kasus tidak ditemukan)
+                        if (!$record->departemen_id) {
+                            Notification::make()
+                                ->title('Gagal Proses Absensi')
+                                ->body('Pegawai ini belum terdaftar dalam departemen manapun. Silakan atur departemen pegawai terlebih dahulu.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
                         $latlon = trim((string) ($data['latlon_in'] ?? '-6.1914783,106.9372911'));
                         if ($latlon === '') {
                             Notification::make()
@@ -177,15 +395,22 @@ class ManualAttendanceResource extends Resource
                             return;
                         }
 
-                        $attendance = \App\Models\Attendance::query()
+                        $filters = $livewire->tableFilters ?? [];
+                        $shiftId = $filters['shift_kerja_id']['value'] ?? null;
+                        $query = \App\Models\Attendance::query()
                             ->where('user_id', $record->id)
-                            ->whereDate('date', $today)
-                            ->first();
+                            ->whereDate('date', $targetDate);
+                        if ($shiftId) {
+                            $query->where('shift_id', $shiftId);
+                        }
+                        $attendance = $query->first();
 
                         if (!$attendance) {
                             $attendance = new \App\Models\Attendance();
                             $attendance->user_id = $record->id;
-                            $attendance->date = $today;
+                            $attendance->date = $targetDate;
+                            // Requirement: Tambahkan field 'departemen_id' ke dalam data yang akan diinsert
+                            $attendance->departemen_id = $record->departemen_id;
                         }
 
                         $attendance->status = $data['status'] ?? 'on_time';
@@ -196,7 +421,11 @@ class ManualAttendanceResource extends Resource
                         } else {
                             $attendance->file = null;
                         }
-                        $attendance->time_in = now()->format('H:i:s');
+                        // Jika membuat baru, set time_in. Jika update (harusnya lewat update action, tapi jaga-jaga), jangan ubah time_in kecuali diperlukan.
+                        // Action ini untuk 'kehadiran' (create new), jadi set time_in.
+                        if (!$attendance->exists) {
+                            $attendance->time_in = now()->format('H:i:s');
+                        }
                         $attendance->latlon_in = $latlon;
                         $attendance->save();
 
@@ -214,24 +443,40 @@ class ManualAttendanceResource extends Resource
 
                         Notification::make()
                             ->title('Kehadiran diperbarui')
-                            ->body('Status absensi berhasil disimpan.')
+                            ->body('Status absensi berhasil disimpan untuk tanggal ' . \Carbon\Carbon::parse($targetDate)->format('d-m-Y'))
                             ->success()
                             ->send();
                     }),
                 Action::make('update')
                     ->label('Update')
                     ->icon('heroicon-o-pencil-square')
-                    ->visible(function (User $record) {
-                        return \App\Models\Attendance::query()
+                    ->visible(function (User $record, \Livewire\Component $livewire) {
+                        $filters = $livewire->tableFilters ?? [];
+                        $dateInput = $filters['date_filter']['date'] ?? now()->toDateString();
+                        $shiftId = $filters['shift_kerja_id']['value'] ?? null;
+                        $date = \Carbon\Carbon::parse($dateInput)->toDateString();
+
+                        $query = \App\Models\Attendance::query()
                             ->where('user_id', $record->id)
-                            ->whereDate('date', now()->toDateString())
-                            ->exists();
+                            ->whereDate('date', $date);
+                        if ($shiftId) {
+                            $query->where('shift_id', $shiftId);
+                        }
+                        return $query->exists();
                     })
-                    ->form(function (User $record) {
-                        $att = \App\Models\Attendance::query()
+                    ->form(function (User $record, \Livewire\Component $livewire) {
+                        $filters = $livewire->tableFilters ?? [];
+                        $dateInput = $filters['date_filter']['date'] ?? now()->toDateString();
+                        $date = \Carbon\Carbon::parse($dateInput)->toDateString();
+
+                        $shiftId = $filters['shift_kerja_id']['value'] ?? null;
+                        $query = \App\Models\Attendance::query()
                             ->where('user_id', $record->id)
-                            ->whereDate('date', now()->toDateString())
-                            ->first();
+                            ->whereDate('date', $date);
+                        if ($shiftId) {
+                            $query->where('shift_id', $shiftId);
+                        }
+                        $att = $query->first();
                         return [
                             Select::make('company_location_id')
                                 ->label('Lokasi Absen')
@@ -267,10 +512,14 @@ class ManualAttendanceResource extends Resource
                         ];
                     })
                     ->requiresConfirmation()
-                    ->action(function (User $record, array $data) {
+                    ->action(function (User $record, array $data, \Livewire\Component $livewire) {
+                        $filters = $livewire->tableFilters ?? [];
+                        $dateInput = $filters['date_filter']['date'] ?? now()->toDateString();
+                        $targetDate = \Carbon\Carbon::parse($dateInput)->toDateString();
+
                         $att = \App\Models\Attendance::query()
                             ->where('user_id', $record->id)
-                            ->whereDate('date', now()->toDateString())
+                            ->whereDate('date', $targetDate)
                             ->first();
                         if (!$att) {
                             Notification::make()
