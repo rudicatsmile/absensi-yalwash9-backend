@@ -19,28 +19,23 @@ class AttendancesTable
         return $table
             ->columns([
                 TextColumn::make('user.name')
-                    ->label('User')
+                    ->label('Pegawai')
                     ->searchable()
                     ->sortable()
                     ->weight('medium'),
                 TextColumn::make('date')
-                    ->label('Date')
+                    ->label('Tanggal')
                     ->date('d M Y')
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('time_in')
-                    ->label('Check In')
-                    ->time('H:i')
-                    ->sortable()
-                    ->icon('heroicon-o-arrow-right-on-rectangle')
-                    ->color('success'),
-                TextColumn::make('time_out')
-                    ->label('Check Out')
-                    ->time('H:i')
-                    ->sortable()
-                    ->placeholder('-')
-                    ->icon('heroicon-o-arrow-left-on-rectangle')
-                    ->color('danger'),
+                TextColumn::make('time_range')
+                    ->label('Check In / Out')
+                    ->getStateUsing(function ($record) {
+                        $in = $record->time_in ? \Carbon\Carbon::parse($record->time_in)->format('H:i') : '-';
+                        $out = $record->time_out ? \Carbon\Carbon::parse($record->time_out)->format('H:i') : '-';
+                        return $in . ' - ' . $out;
+                    })
+                    ->icon('heroicon-o-clock'),
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
@@ -58,7 +53,7 @@ class AttendancesTable
                     })
                     ->sortable(),
                 TextColumn::make('total_hours')
-                    ->label('Total Hours')
+                    ->label('Total Jam')
                     ->getStateUsing(function ($record) {
                         if (!$record->time_out) {
                             return '-';
@@ -77,6 +72,13 @@ class AttendancesTable
                     ->badge()
                     ->color('primary')
                     ->placeholder('No Shift')
+                    ->sortable()
+                    ->searchable(),
+
+                // Lokasi absen
+                TextColumn::make('companyLocation.name')
+                    ->label('Lokasi')
+                    ->placeholder('No Location')
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('latlon_in')
@@ -140,14 +142,14 @@ class AttendancesTable
                     ->label('Departemen')
                     ->options(function () {
                         $base = \App\Models\Departemen::query()->orderBy('name');
-                        if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+                        if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
                             $base->whereKey(auth()->user()->departemen_id);
                         }
                         return $base->pluck('name', 'id')->toArray();
                     })
                     ->searchable()
                     ->preload()
-                    ->visible(fn () => !auth()->check() || ! in_array(auth()->user()->role, ['employee'], true))
+                    ->visible(fn() => !auth()->check() || !in_array(auth()->user()->role, ['employee'], true))
                     ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
                         $value = $data['value'] ?? null;
                         if (!is_numeric($value)) {
@@ -166,11 +168,11 @@ class AttendancesTable
 
                 // Filter User (opsi tergantung Departemen terpilih)
                 \Filament\Tables\Filters\SelectFilter::make('user_id')
-                    ->label('User')
+                    ->label('Pegawai')
                     ->options(function (): array {
                         $departemenIds = self::getSelectedDepartemenIds();
                         $query = \App\Models\User::query()->select('id', 'name', 'nip');
-                        if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+                        if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
                             $query->where('departemen_id', auth()->user()->departemen_id);
                         } else {
                             $query->when(!empty($departemenIds), function ($q) use ($departemenIds) {
@@ -187,7 +189,7 @@ class AttendancesTable
                     })
                     ->searchable()
                     ->preload()
-                    ->visible(fn () => !auth()->check() || ! in_array(auth()->user()->role, ['employee'], true))
+                    ->visible(fn() => !auth()->check() || !in_array(auth()->user()->role, ['employee'], true))
                     ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
                         $value = $data['value'] ?? null;
                         if (!is_numeric($value)) {
@@ -257,7 +259,7 @@ class AttendancesTable
                             }),
 
                         \Filament\Forms\Components\Select::make('user_id')
-                            ->label('User')
+                            ->label('Pegawai')
                             ->options(function (callable $get) {
                                 $departemenId = $get('departemen_id');
 
@@ -364,7 +366,7 @@ class AttendancesTable
                     }),
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => auth()->check() && auth()->user()->role !== 'employee'),
+                        ->visible(fn() => auth()->check() && auth()->user()->role !== 'employee'),
                 ]),
             ])
             ->defaultSort('date', 'desc');
@@ -396,5 +398,3 @@ class AttendancesTable
         // ... existing code ...
     }
 }
-
-
