@@ -10,6 +10,8 @@ use App\Support\WorkdayCalculator;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Services\FcmService;
 
 class LeaveController extends Controller
 {
@@ -123,6 +125,41 @@ class LeaveController extends Controller
         }
 
         $leave = Leave::create($validated);
+
+        // Notification Logic
+        try {
+            // 1. Get departemen_id
+            $dept_id = DB::scalar("SELECT departemen_id FROM users WHERE id = ?", [$userId]);
+
+            if ($dept_id) {
+                // 2. Get recipients (manager or kepala_sub_bagian in the same department)
+                $recipients = DB::select("SELECT id FROM users WHERE departemen_id = ? AND role IN ('manager', 'kepala_sub_bagian')", [$dept_id]);
+                $recipientIds = array_column($recipients, 'id');
+
+                // 3. Send notifications
+                if (!empty($recipientIds)) {
+                    $employeeName = $request->user()->name;
+                    $leaveTypeName = LeaveType::where('id', $validated['leave_type_id'])->value('name') ?? 'Cuti';
+                    $startDateFormatted = Carbon::parse($validated['start_date'])->format('d/m/Y');
+
+                    $title = 'Pengajuan Cuti Baru';
+                    $body = "{$employeeName} mengajukan {$leaveTypeName} pada tanggal {$startDateFormatted}.";
+
+                    $data = [
+                        'type' => 'leave_created',
+                        'leave_id' => (string) $leave->id,
+                        'event_id' => '', // Leaves typically don't map to a single shift/event like permits might
+                    ];
+
+                    $fcmService = app(FcmService::class);
+                    foreach ($recipientIds as $recipientId) {
+                        $fcmService->sendToUser($recipientId, $title, $body, $data);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send leave notification: ' . $e->getMessage());
+        }
 
         return response()->json([
             'message' => 'Leave request created successfully',
