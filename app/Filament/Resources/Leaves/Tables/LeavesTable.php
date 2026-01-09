@@ -143,7 +143,7 @@ class LeavesTable
                     ->label('Approve')
                     ->color('success')
                     ->icon('heroicon-o-check')
-                    ->visible(fn(Leave $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga'], true))
+                    ->visible(fn(Leave $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga', 'manager', 'kepala_sub_bagian'], true))
                     ->requiresConfirmation()
                     ->modalHeading('Approval Permintaan Cuti')
                     ->modalDescription(fn($record) => $record->employee->name . "\n - " . $record->leaveType->name . "\n- " . $record->start_date->format('d/m/Y') . ' - ' . $record->end_date->format('d/m/Y'))
@@ -242,7 +242,7 @@ class LeavesTable
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-circle')
-                    ->visible(fn(Leave $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga'], true))
+                    ->visible(fn(Leave $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga', 'manager', 'kepala_sub_bagian'], true))
                     ->form([
                         Textarea::make('notes')
                             ->label('Rejection Notes')

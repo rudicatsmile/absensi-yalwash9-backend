@@ -56,11 +56,15 @@ class PermitTypeResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role !== 'employee';
+        // return auth()->check() && auth()->user()->role !== 'employee';
+        return auth()->check() && !in_array(auth()->user()->role, ['employee', 'manager', 'kepala_sub_bagian'], true);
+
     }
 
     public static function canViewAny(): bool
     {
-        return auth()->check() && auth()->user()->role !== 'employee';
+        // return auth()->check() && auth()->user()->role !== 'employee';
+        return auth()->check() && !in_array(auth()->user()->role, ['employee', 'manager', 'kepala_sub_bagian'], true);
+
     }
 }
