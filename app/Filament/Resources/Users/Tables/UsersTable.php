@@ -19,6 +19,19 @@ class UsersTable
     {
         return $table
             ->columns([
+                TextColumn::make('row_number')
+                    ->label('No')
+                    ->getStateUsing(static function (\Filament\Tables\Columns\TextColumn $column, $record): string {
+                        $table = $column->getTable();
+                        $livewire = $table->getLivewire();
+                        $page = $livewire->getTablePage();
+                        $perPage = $livewire->getTableRecordsPerPage();
+                        $records = $table->getRecords();
+                        $index = $records->values()->search(fn($item) => $item->getKey() === $record->getKey());
+
+                        return (string) (($page - 1) * $perPage + $index + 1);
+                    })
+                    ->sortable(false),
                 ImageColumn::make('image_url')
                     ->label('Avatar')
                     ->disk('public')
@@ -174,6 +187,9 @@ class UsersTable
                         }),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc');
+            // ->defaultSort('jabatan_id', direction: 'asc');
+            ->modifyQueryUsing(fn(Builder $query) => $query
+                ->orderBy('jabatan_id', 'asc')
+                ->orderBy('nip', 'asc'));
     }
 }

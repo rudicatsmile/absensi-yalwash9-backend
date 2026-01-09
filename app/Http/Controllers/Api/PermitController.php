@@ -136,10 +136,11 @@ class PermitController extends Controller
 
         //$shiftId = 5  : Absen Pengajian malam jumat
         //$shiftId != 5 : Absen Lainnya
+        //Auto approve by sistem
 
         if ($shiftIdInt === 5) {
             $validated['status'] = 'approved';
-            $validated['approved_by'] = 11;
+            $validated['approved_by'] = 513;   //Name : Admin User (role : admin)
             $validated['approved_at'] = now();
         } else {
 
