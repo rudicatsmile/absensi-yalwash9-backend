@@ -9,6 +9,8 @@ use App\Support\WorkdayCalculator;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Services\FcmService;
 
 class PermitController extends Controller
 {
@@ -155,6 +157,41 @@ class PermitController extends Controller
         }
 
         $permit = Permit::create($validated);
+
+        // Notification Logic
+        try {
+            // 1. Get departemen_id
+            $dept_id = DB::scalar("SELECT departemen_id FROM users WHERE id = ?", [$userId]);
+
+            if ($dept_id) {
+                // 2. Get recipients (manager or kepala_sub_bagian in the same department)
+                $recipients = DB::select("SELECT id FROM users WHERE departemen_id = ? AND role IN ('manager', 'kepala_sub_bagian')", [$dept_id]);
+                $recipientIds = array_column($recipients, 'id');
+
+                // 3. Send notifications
+                if (!empty($recipientIds)) {
+                    $employeeName = $request->user()->name;
+                    $permitTypeName = PermitType::where('id', $validated['permit_type_id'])->value('name') ?? 'Izin';
+                    $startDateFormatted = Carbon::parse($validated['start_date'])->format('d/m/Y');
+
+                    $title = 'Pengajuan Izin Baru';
+                    $body = "{$employeeName} mengajukan izin {$permitTypeName} pada tanggal {$startDateFormatted}.";
+
+                    $data = [
+                        'type' => 'permit_created',
+                        'permit_id' => (string) $permit->id,
+                        'event_id' => (string) ($permit->shift_id ?? ''),
+                    ];
+
+                    $fcmService = app(FcmService::class);
+                    foreach ($recipientIds as $recipientId) {
+                        $fcmService->sendToUser($recipientId, $title, $body, $data);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send permit notification: ' . $e->getMessage());
+        }
 
         return response()->json([
             'message' => 'Permit request created successfully',
