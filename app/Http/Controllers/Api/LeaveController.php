@@ -133,8 +133,17 @@ class LeaveController extends Controller
 
             if ($dept_id) {
                 // 2. Get recipients (manager or kepala_sub_bagian in the same department)
-                $recipients = DB::select("SELECT id FROM users WHERE departemen_id = ? AND role IN ('manager', 'kepala_sub_bagian')", [$dept_id]);
-                $recipientIds = array_column($recipients, 'id');
+                // Jika dept_id selain dari 7,8,9,10,11 maka kirim notif ke 515 dan 215
+                // dept_id 7,8,9,10,11 : TK s/d SMK DP2
+
+                $excludedDepts = [7, 8, 9, 10, 11];
+
+                if (!in_array($dept_id, $excludedDepts)) {
+                    $recipientIds = [515, 215];
+                } else {
+                    $recipients = DB::select("SELECT id FROM users WHERE departemen_id = ? AND role IN ('manager', 'kepala_sub_bagian')", [$dept_id]);
+                    $recipientIds = array_column($recipients, 'id');
+                }
 
                 // 3. Send notifications
                 if (!empty($recipientIds)) {
