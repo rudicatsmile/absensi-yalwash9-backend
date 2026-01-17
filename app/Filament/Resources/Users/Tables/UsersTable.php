@@ -424,25 +424,9 @@ class UsersTable
                                             'allowed_days' => $newMap,
                                         ]);
                                     } else {
-                                        $oldMap = (array) ($schedule->allowed_days ?? []);
-                                        $changed = [];
-                                        foreach ($newMap as $k => $v) {
-                                            $old = (bool) ($oldMap[$k] ?? false);
-                                            if ($old !== $v) {
-                                                $changed[$k] = $v;
-                                            }
-                                        }
-                                        if (!empty($changed)) {
-                                            $setPieces = [];
-                                            $bindings = [];
-                                            foreach ($changed as $k => $v) {
-                                                $setPieces[] = 'allowed_days = JSON_SET(allowed_days, ?, ?)';
-                                                $bindings[] = '$.' . $k;
-                                                $bindings[] = $v ? 1 : 0;
-                                            }
-                                            $sql = 'UPDATE employee_work_schedule SET ' . implode(', ', $setPieces) . ' WHERE id = ?';
-                                            $bindings[] = $schedule->id;
-                                            DB::statement($sql, $bindings);
+                                        $schedule->allowed_days = $newMap;
+                                        if ($schedule->isDirty('allowed_days')) {
+                                            $schedule->save();
                                         }
                                     }
                                 });
@@ -568,8 +552,7 @@ class UsersTable
                 ])
             // ->defaultSort('jabatan_id', direction: 'asc');
             ->modifyQueryUsing(fn(Builder $query) => $query
-                ->orderBy('jabatan_id', 'asc')
-                ->orderBy('nip', 'asc'));
+                ->orderBy('jabatan_id', 'asc'));
     }
 
     protected static function retrieveEmployeeWorkSchedule(int $userId, int $month, int $year): ?EmployeeWorkSchedule
