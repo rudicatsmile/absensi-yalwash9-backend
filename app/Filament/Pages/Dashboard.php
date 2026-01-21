@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\AttendanceChartWidget;
 use App\Filament\Widgets\DashboardStatsWidget;
+use App\Filament\Widgets\DepartmentStatsWidget;
 use App\Filament\Widgets\LatestAttendanceWidget;
 use App\Filament\Widgets\PendingApprovalsWidget;
 use App\Filament\Widgets\PendingOvertimeWidget;
@@ -94,6 +95,7 @@ class Dashboard extends BaseDashboard implements HasForms, HasActions
     {
         return [
             DashboardStatsWidget::class,
+            DepartmentStatsWidget::class,
         ];
     }
 

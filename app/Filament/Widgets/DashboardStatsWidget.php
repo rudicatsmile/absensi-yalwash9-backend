@@ -3,8 +3,6 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Attendance;
-use App\Models\Departemen;
-use App\Models\Jabatan;
 use App\Models\User;
 use Carbon\Carbon;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
@@ -13,7 +11,7 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class DashboardStatsWidget extends BaseWidget
 {
-    use InteractsWithPageFilters; // Tetap pakai ini agar auto-refresh saat filter berubah
+    use InteractsWithPageFilters;
 
     protected int|string|array $columnSpan = 'full';
     protected static ?int $sort = 1;
@@ -21,14 +19,14 @@ class DashboardStatsWidget extends BaseWidget
 
     protected static ?array $grid = [
         'default' => 2,
-        'md' => 3,
-        'lg' => 6,
+        'md' => 5,
+        'lg' => 5, // 5 card dalam 1 baris di layar besar
     ];
 
     protected function getSelectedDate(): Carbon
     {
-        $dateString = session('dashboard_filter_date') ?? today()->format('Y-m-d'); // Fallback ke hari ini sebagai string
-        return Carbon::parse($dateString); // Selalu parse ke Carbon
+        $dateString = session('dashboard_filter_date') ?? today()->format('Y-m-d');
+        return Carbon::parse($dateString);
     }
 
     protected function getSelectedShift(): ?string
@@ -41,244 +39,133 @@ class DashboardStatsWidget extends BaseWidget
         $selectedDate = $this->getSelectedDate();
         $selectedShift = $this->getSelectedShift();
 
-        //  ...Departemen::withCount('users')->get()->map(function ($departemen) {
-        //         $attendanceCount = Attendance::where('departemen_id', $departemen->id)->whereDate('created_at', today())->count();
-        //         $totalUsers = $departemen->users_count;
-        //         $percentage = ($totalUsers > 0) ? round(($attendanceCount / $totalUsers) * 100) : 0;
-
-        //         return Stat::make($departemen->name, $attendanceCount)
-        //             ->description($percentage . '% karyawan hadir')
-        //             ->descriptionIcon('heroicon-m-check-circle')
-        //             ->color('primary');
-        //     })->toArray(),
-
-
-
-        // $stats = Departemen::withCount('users')->get()->map(function (Departemen $dept) use ($selectedDate) {
-        //     $hadir = Attendance::where('departemen_id', $dept->id)
-        //         ->whereDate('date', $selectedDate)
-        //         ->count();
-
-        $query = "
-            SELECT
-                d.id,
-                d.name,
-                COUNT(u.id) AS total_users,
-                (
-                    SELECT COUNT(*)
-                    FROM attendances a
-                    JOIN users u2 ON a.user_id = u2.id
-                    WHERE u2.departemen_id = d.id
-                    AND DATE(a.date) = ? " . ($selectedShift ? " AND a.shift_id = ?" : "") . "
-                ) AS attendance_count
-            FROM
-                departemens d
-            LEFT JOIN
-                users u ON d.id = u.departemen_id
-            GROUP BY
-                d.id, d.name
-            ORDER BY
-                d.id
-        ";
-
-        $bindings = [$selectedDate->toDateString()];
-        if ($selectedShift) {
-            $bindings[] = $selectedShift;
-        }
-
-        $departmentStats = \Illuminate\Support\Facades\DB::select($query, $bindings);
-
         // Cek apakah user memiliki role yang perlu filter berdasarkan departemen
         $currentUser = auth()->user();
         $isDepartmentFiltered = in_array($currentUser->role, ['manager', 'kepala_sub_bagian', 'employee']);
         $userDepartmentId = $currentUser->departemen_id;
 
-        // Total Pegawai - filter berdasarkan departemen untuk role tertentu
-        $totalPegawaiCount = $isDepartmentFiltered
-            ? User::where('departemen_id', $userDepartmentId)->count()
-            : User::count();
+        // Helper untuk filter query
+        $applyFilters = function ($query) use ($isDepartmentFiltered, $userDepartmentId, $selectedShift) {
+            if ($isDepartmentFiltered) {
+                // Asumsi relasi user ada departemen_id atau lewat employee
+                // Jika modelnya User (untuk total pegawai):
+                if ($query->getModel() instanceof User) {
+                    $query->where('departemen_id', $userDepartmentId);
+                }
+                // Jika model Attendance/Leave/Permit yang punya relasi user/employee:
+                else {
+                    // Cek nama relasi, biasanya 'user' atau 'employee'
+                    // Di Attendance: user()
+                    // Di Leave/Permit: employee() (User model)
+                    $relationName = method_exists($query->getModel(), 'employee') ? 'employee' : 'user';
 
-        $stats[] = Stat::make('Total Pegawai', $totalPegawaiCount)
-            ->description($isDepartmentFiltered ? 'Pegawai di lembaga Anda' : 'Seluruh karyawan')
-            ->descriptionIcon('heroicon-m-users')
-            ->color('primary');
+                    $query->whereHas($relationName, function ($q) use ($userDepartmentId) {
+                        $q->where('departemen_id', $userDepartmentId);
+                    });
+                }
+            }
 
-        // Total Hadir - filter berdasarkan departemen untuk role tertentu
-        $totalHadir = $isDepartmentFiltered
-            ? Attendance::where('departemen_id', $userDepartmentId)
-                ->whereDate('date', $selectedDate)
-                ->when($selectedShift, fn($q) => $q->where('shift_id', $selectedShift))
-                ->count()
-            : array_sum(array_column($departmentStats, 'attendance_count'));
+            if ($selectedShift) {
+                // Jika model punya shift_id langsung (Attendance)
+                // Atau perlu join user->shift_id (tapi shift user bisa beda dengan shift attendance?)
+                // Di kode lama: Attendance pakai shift_id kolom, Leave/Permit join employee->shift_id
 
-        $stats[] = Stat::make('Total Hadir', $totalHadir)
-            ->description('Pegawai yang hadir')
-            ->descriptionIcon('heroicon-m-check-circle')
-            ->color('primary');
+                if ($query->getModel() instanceof Attendance) {
+                    $query->where('shift_id', $selectedShift);
+                } else {
+                    $relationName = method_exists($query->getModel(), 'employee') ? 'employee' : 'user';
+                    $query->whereHas($relationName, function ($q) use ($selectedShift) {
+                        $q->where('shift_id', $selectedShift);
+                    });
+                }
+            }
+        };
 
-        // Total Tidak Hadir - filter berdasarkan departemen untuk role tertentu
-        $totalTidakHadir = $totalPegawaiCount - $totalHadir;
-        $stats[] = Stat::make('Total Tidak Hadir', $totalTidakHadir)
-            ->description('Pegawai yang tidak hadir')
-            ->descriptionIcon('heroicon-m-x-circle')
-            ->color('danger');
-
-        // Total Izin - filter berdasarkan departemen dan shift untuk role tertentu
-        $totalIzinQuery = \App\Models\Permit::whereDate('start_date', '<=', $selectedDate)
-            ->whereDate('end_date', '>=', $selectedDate);
-
-        // Filter berdasarkan departemen untuk role tertentu
+        // 1. Total Pegawai
+        $pegawaiQuery = User::query();
         if ($isDepartmentFiltered) {
-            $totalIzinQuery->whereHas('employee', function ($query) use ($userDepartmentId) {
-                $query->where('departemen_id', $userDepartmentId);
-            });
+            $pegawaiQuery->where('departemen_id', $userDepartmentId);
         }
+        $totalPegawaiCount = $pegawaiQuery->count();
 
-        // Filter berdasarkan shift jika dipilih
-        $totalIzinQuery->when($selectedShift, function ($query) use ($selectedShift) {
-            $query->whereHas('employee', function ($subQuery) use ($selectedShift) {
-                $subQuery->where('shift_id', $selectedShift);
-            });
-        });
+        // 2. Total Hadir
+        $hadirQuery = Attendance::whereDate('date', $selectedDate);
+        $applyFilters($hadirQuery);
+        $totalHadir = $hadirQuery->count();
 
-        $totalIzin = $totalIzinQuery->count();
-        $stats[] = Stat::make('Total Izin', $totalIzin)
-            ->description('Pegawai yang izin')
-            ->descriptionIcon('heroicon-m-clipboard-document-check')
-            ->color('info');
+        // 3. Total Tidak Hadir
+        // Logika sederhana: Total Pegawai - Total Hadir
+        // Catatan: Ini asumsi sederhana, bisa jadi tidak akurat jika ada yang libur/off tapi dihitung 'tidak hadir'
+        // Tapi mengikuti logika kode sebelumnya: $totalPegawaiCount - $totalHadir
+        $totalTidakHadir = $totalPegawaiCount - $totalHadir;
+        // Pastikan tidak negatif
+        $totalTidakHadir = max(0, $totalTidakHadir);
 
-        // Total Cuti - filter berdasarkan departemen dan shift untuk role tertentu
-        $totalCutiQuery = \App\Models\Leave::whereDate('start_date', '<=', $selectedDate)
+        // 4. Total Izin
+        $izinQuery = \App\Models\Permit::whereDate('start_date', '<=', $selectedDate)
+            ->whereDate('end_date', '>=', $selectedDate)
+            ->where('status', 'approved')
+            ->where('permit_type_id', '<>', 4);
+        $applyFilters($izinQuery);
+        $totalIzin = $izinQuery->count();
+
+        // 5. Total Cuti
+        $cutiQuery = \App\Models\Leave::whereDate('start_date', '<=', $selectedDate)
             ->whereDate('end_date', '>=', $selectedDate)
             ->where('status', 'approved');
+        $applyFilters($cutiQuery);
+        $totalCuti = $cutiQuery->count();
 
-        // Filter berdasarkan departemen untuk role tertentu
-        if ($isDepartmentFiltered) {
-            $totalCutiQuery->whereHas('employee', function ($query) use ($userDepartmentId) {
-                $query->where('departemen_id', $userDepartmentId);
-            });
-        }
+        $stats = [
+            Stat::make('Total Pegawai', $totalPegawaiCount)
+                ->description($isDepartmentFiltered ? 'Pegawai di lembaga Anda' : 'Seluruh karyawan')
+                ->descriptionIcon('heroicon-m-users')
+                ->color('primary')
+                ->chart([7, 2, 10, 3, 15, 4, 17])
+                ->extraAttributes([
+                    'class' => 'border-b-4 border-blue-500 shadow-lg rounded-xl hover:scale-105 transition-transform duration-300 bg-white dark:bg-gray-800',
+                ]),
 
-        // Filter berdasarkan shift jika dipilih
-        $totalCutiQuery->when($selectedShift, function ($query) use ($selectedShift) {
-            $query->whereHas('employee', function ($subQuery) use ($selectedShift) {
-                $subQuery->where('shift_id', $selectedShift);
-            });
-        });
+            Stat::make('Total Hadir', $totalHadir)
+                ->description('Pegawai yang hadir')
+                ->descriptionIcon('heroicon-m-check-circle')
+                ->color('success')
+                ->chart([15, 12, 18, 14, 20, 15, 19])
+                ->extraAttributes([
+                    'class' => 'border-b-4 border-green-500 shadow-lg rounded-xl hover:scale-105 transition-transform duration-300 bg-white dark:bg-gray-800',
+                ]),
 
-        $totalCuti = $totalCutiQuery->count();
-        $stats[] = Stat::make('Total Cuti', $totalCuti)
-            ->description('Pegawai yang sedang cuti')
-            ->descriptionIcon('heroicon-m-calendar-days')
-            ->color('warning');
+            Stat::make('Total Tidak Hadir', $totalTidakHadir)
+                ->description('Pegawai yang tidak hadir')
+                ->descriptionIcon('heroicon-m-x-circle')
+                ->color('danger')
+                ->chart([3, 5, 2, 4, 1, 6, 3])
+                ->extraAttributes([
+                    'class' => 'border-b-4 border-red-500 shadow-lg rounded-xl hover:scale-105 transition-transform duration-300 bg-white dark:bg-gray-800',
+                ]),
 
-        // Widget khusus untuk kepala_lembaga dan admin: Statistik per departemen
-        if (auth()->check() && in_array(auth()->user()->role, ['kepala_lembaga', 'admin'])) {
-            $departmentStatsWidgets = array_map(function ($deptStat) {
-                $hadir = $deptStat->attendance_count;
-                $total = $deptStat->total_users;
-                $persen = $total > 0 ? round(($hadir / $total) * 100) : 0;
+            Stat::make('Total Izin', $totalIzin)
+                ->description('Pegawai yang izin')
+                ->descriptionIcon('heroicon-m-clipboard-document-check')
+                ->color('info')
+                ->chart([1, 0, 2, 1, 3, 1, 2])
+                ->extraAttributes([
+                    'class' => 'border-b-4 border-amber-500 shadow-lg rounded-xl hover:scale-105 transition-transform duration-300 bg-white dark:bg-gray-800',
+                ]),
 
-                $color = $persen >= 90 ? 'success' : ($persen >= 70 ? 'warning' : 'danger');
-
-                return Stat::make($deptStat->name, "$hadir / $total")
-                    ->description("$persen% hadir")
-                    ->descriptionIcon($persen >= 80 ? 'heroicon-m-check-circle' : 'heroicon-m-exclamation-triangle')
-                    ->color($color);
-            }, $departmentStats);
-
-            // Tambahkan widget departemen ke stats
-            $stats = array_merge($stats, $departmentStatsWidgets);
-        }
-
-        //Buatkan widget kosong disini
-        // Pemisah horizontal
-        // $stats[] = Stat::make(' ', ' ')->columnSpan('full');
-
-
-        // Total umum
-        // $stats[] = Stat::make('Total Pegawai', User::count())
-        //     ->description('Seluruh karyawan')
-        //     ->descriptionIcon('heroicon-m-users')
-        //     ->color('primary');
-
-
-        // //Buatkan widget total pegawai hadir pada hari aktif
-        // $totalHadir = array_sum(array_column($departmentStats, 'attendance_count'));
-
-        // $totalIzinQuery = \App\Models\Permit::whereDate('start_date', '<=', $selectedDate)
-        //     ->whereDate('end_date', '>=', $selectedDate);
-
-        // if ($selectedShift) {
-        //     $totalIzinQuery->whereHas('employee', function ($query) use ($selectedShift) {
-        //         $query->where('shift_id', $selectedShift);
-        //     });
-        // }
-
-        // $totalIzin = $totalIzinQuery->count();
-        // $stats[] = Stat::make('Total Izin', $totalIzin)
-        //     ->description('Pegawai yang izin')
-        //     ->descriptionIcon('heroicon-m-clipboard-document-check')
-        //     ->color('info');
-
-        // Total umum
-        //Buatkan widget total pegawai hadir pada hari aktif
-
-
-
-
-        // $stats[] = Stat::make('Total Jabatan', Jabatan::count())
-        //     ->description('Jabatan tersedia')
-        //     ->descriptionIcon('heroicon-m-briefcase')
-        //     ->color('success');
-
-        // $stats[] = Stat::make('Total Departemen', Departemen::count())
-        //     ->description('Departemen aktif')
-        //     ->descriptionIcon('heroicon-m-building-office')
-        //     ->color('info');
-
-        // Info tanggal aktif
-        // $stats[] = Stat::make('Tanggal', $selectedDate->translatedFormat('d F Y'))
-        //     ->description($selectedDate->isToday() ? 'Hari ini' : 'Filter aktif')
-        //     ->descriptionIcon('heroicon-m-calendar-days')
-        //     ->color('gray');
-
-        /**
-         * ----------------------------------------------------------------
-         * KARTU INFORMASI FILTER AKTIF
-         * ----------------------------------------------------------------
-         * Menampilkan kartu statistik untuk memberikan informasi visual
-         * mengenai filter tanggal dan shift yang sedang diterapkan.
-         */
-
-        // Kartu untuk menampilkan tanggal filter yang aktif.
-        // $stats[] = Stat::make('Tanggal Filter', $selectedDate->format('d-m-Y'))
-        //     ->description($selectedDate->isToday() ? 'Hari Ini' : 'Tanggal Terpilih')
-        //     ->descriptionIcon('heroicon-m-calendar-days')
-        //     ->color('gray');
-
-        // // Kartu untuk menampilkan shift kerja yang aktif.
-        // // Mengambil nama shift dari database jika ada shift yang dipilih.
-        // $shiftName = 'Semua Shift';
-        // $shiftStatus = 'Belum Dipilih';
-        // if ($selectedShift) {
-        //     // Cari model ShiftKerja berdasarkan ID yang ada di session.
-        //     $shift = \App\Models\ShiftKerja::find($selectedShift);
-        //     if ($shift) {
-        //         $shiftName = $shift->name; // Gunakan nama shift jika ditemukan.
-        //         $shiftStatus = 'Sudah Dipilih';
-        //     }
-        // }
-
-        // $stats[] = Stat::make('Shift Kerja', $shiftName)
-        //     ->description($shiftStatus)
-        //     ->descriptionIcon('heroicon-m-clock')
-        //     ->color('gray');
+            Stat::make('Total Cuti', $totalCuti)
+                ->description('Pegawai yang sedang cuti')
+                ->descriptionIcon('heroicon-m-calendar-days')
+                ->color('warning')
+                ->chart([0, 1, 0, 2, 1, 0, 1])
+                ->extraAttributes([
+                    'class' => 'border-b-4 border-purple-500 shadow-lg rounded-xl hover:scale-105 transition-transform duration-300 bg-white dark:bg-gray-800',
+                ]),
+        ];
 
         return $stats;
     }
 
-    // Auto refresh saat ada event dari Dashboard page
     protected function getListeners(): array
     {
         return ['refresh-widgets' => '$refresh'];
