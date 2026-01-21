@@ -17,6 +17,7 @@ class DashboardStatsWidget extends BaseWidget
 
     protected int|string|array $columnSpan = 'full';
     protected static ?int $sort = 1;
+    protected ?string $pollingInterval = '15s';
 
     protected static ?array $grid = [
         'default' => 2,
@@ -58,12 +59,18 @@ class DashboardStatsWidget extends BaseWidget
         //         ->whereDate('date', $selectedDate)
         //         ->count();
 
-         $query = "
+        $query = "
             SELECT
                 d.id,
                 d.name,
                 COUNT(u.id) AS total_users,
-                (SELECT COUNT(*) FROM attendances a WHERE a.departemen_id = d.id AND DATE(a.date) = ? " . ($selectedShift ? " AND a.shift_id = ?" : "") . ") AS attendance_count
+                (
+                    SELECT COUNT(*)
+                    FROM attendances a
+                    JOIN users u2 ON a.user_id = u2.id
+                    WHERE u2.departemen_id = d.id
+                    AND DATE(a.date) = ? " . ($selectedShift ? " AND a.shift_id = ?" : "") . "
+                ) AS attendance_count
             FROM
                 departemens d
             LEFT JOIN
@@ -87,10 +94,10 @@ class DashboardStatsWidget extends BaseWidget
         $userDepartmentId = $currentUser->departemen_id;
 
         // Total Pegawai - filter berdasarkan departemen untuk role tertentu
-        $totalPegawaiCount = $isDepartmentFiltered 
+        $totalPegawaiCount = $isDepartmentFiltered
             ? User::where('departemen_id', $userDepartmentId)->count()
             : User::count();
-        
+
         $stats[] = Stat::make('Total Pegawai', $totalPegawaiCount)
             ->description($isDepartmentFiltered ? 'Pegawai di lembaga Anda' : 'Seluruh karyawan')
             ->descriptionIcon('heroicon-m-users')
@@ -103,7 +110,7 @@ class DashboardStatsWidget extends BaseWidget
                 ->when($selectedShift, fn($q) => $q->where('shift_id', $selectedShift))
                 ->count()
             : array_sum(array_column($departmentStats, 'attendance_count'));
-        
+
         $stats[] = Stat::make('Total Hadir', $totalHadir)
             ->description('Pegawai yang hadir')
             ->descriptionIcon('heroicon-m-check-circle')
@@ -139,7 +146,32 @@ class DashboardStatsWidget extends BaseWidget
             ->description('Pegawai yang izin')
             ->descriptionIcon('heroicon-m-clipboard-document-check')
             ->color('info');
-        
+
+        // Total Cuti - filter berdasarkan departemen dan shift untuk role tertentu
+        $totalCutiQuery = \App\Models\Leave::whereDate('start_date', '<=', $selectedDate)
+            ->whereDate('end_date', '>=', $selectedDate)
+            ->where('status', 'approved');
+
+        // Filter berdasarkan departemen untuk role tertentu
+        if ($isDepartmentFiltered) {
+            $totalCutiQuery->whereHas('employee', function ($query) use ($userDepartmentId) {
+                $query->where('departemen_id', $userDepartmentId);
+            });
+        }
+
+        // Filter berdasarkan shift jika dipilih
+        $totalCutiQuery->when($selectedShift, function ($query) use ($selectedShift) {
+            $query->whereHas('employee', function ($subQuery) use ($selectedShift) {
+                $subQuery->where('shift_id', $selectedShift);
+            });
+        });
+
+        $totalCuti = $totalCutiQuery->count();
+        $stats[] = Stat::make('Total Cuti', $totalCuti)
+            ->description('Pegawai yang sedang cuti')
+            ->descriptionIcon('heroicon-m-calendar-days')
+            ->color('warning');
+
         // Widget khusus untuk kepala_lembaga dan admin: Statistik per departemen
         if (auth()->check() && in_array(auth()->user()->role, ['kepala_lembaga', 'admin'])) {
             $departmentStatsWidgets = array_map(function ($deptStat) {
@@ -191,9 +223,9 @@ class DashboardStatsWidget extends BaseWidget
 
         // Total umum
         //Buatkan widget total pegawai hadir pada hari aktif
-      
 
-               
+
+
 
         // $stats[] = Stat::make('Total Jabatan', Jabatan::count())
         //     ->description('Jabatan tersedia')
