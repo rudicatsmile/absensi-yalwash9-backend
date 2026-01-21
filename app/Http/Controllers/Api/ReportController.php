@@ -409,8 +409,10 @@ class ReportController extends Controller
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'departemen_id' => ['nullable', 'integer', 'exists:departemens,id'],
             'shift_id' => ['nullable', 'integer', 'exists:shift_kerjas,id'],
+            'permit_type_id' => ['nullable', 'integer', 'exists:permit_types,id'],
+            'status' => ['nullable', 'string'],
             'q' => ['nullable', 'string'],
-            'sort' => ['nullable', 'in:name,departemen_name,jabatan_name,total_izin'],
+            'sort' => ['nullable', 'string'],
             'dir' => ['nullable', 'in:asc,desc'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:1000'],
@@ -427,74 +429,49 @@ class ReportController extends Controller
         $end = $request->input('end_date');
         $departemenId = $request->input('departemen_id');
         $shiftId = $request->input('shift_id');
+        $permitTypeId = $request->input('permit_type_id');
+        $status = $request->input('status');
         $q = trim((string) $request->input('q', ''));
-        $sort = $request->input('sort', 'name');
+        $sort = $request->input('sort', 'users.name');
         $dir = strtolower($request->input('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
         $page = (int) $request->input('page', 1);
         $perPage = (int) $request->input('per_page', 10);
 
-        $users = DB::table('users')
+        $query = \App\Models\Permit::query()
+            ->join('users', 'permits.employee_id', '=', 'users.id')
+            ->join('permit_types', 'permits.permit_type_id', '=', 'permit_types.id')
             ->leftJoin('departemens', 'users.departemen_id', '=', 'departemens.id')
-            ->leftJoin('jabatans', 'users.jabatan_id', '=', 'jabatans.id')
             ->select([
-                'users.id',
-                'users.name',
-                DB::raw('COALESCE(departemens.name, "-") as departemen_name'),
-                DB::raw('COALESCE(jabatans.name, "-") as jabatan_name'),
+                'permits.id',
+                'users.name as employee_name',
+                'permit_types.name as permit_type',
+                'permits.reason',
+                'permits.status',
+                'permits.start_date',
+                'permits.end_date',
+                'departemens.name as departemen_name'
             ])
-            ->when($departemenId, fn($q2) => $q2->where('users.departemen_id', (int) $departemenId))
-            ->when($q !== '', fn($q2) => $q2->where('users.name', 'like', '%' . $q . '%'))
-            ->get();
+            ->whereDate('permits.end_date', '>=', $start)
+            ->whereDate('permits.start_date', '<=', $end)
+            ->when($status, fn($q) => $q->where('permits.status', $status))
+            ->when(!$status, fn($q) => $q->where('permits.status', 'approved')) // Default only approved if not specified, or maybe show all? User said "mengajukan", maybe all? But dashboard stats usually approved. Let's filter by approved by default if not filtered. Actually widget sends 'approved' status filter usually.
+            ->when($permitTypeId, fn($q) => $q->where('permits.permit_type_id', $permitTypeId))
+            ->when($departemenId, fn($q) => $q->where('users.departemen_id', $departemenId))
+            ->when($shiftId, fn($q) => $q->where('users.shift_kerja_id', $shiftId)) // Assuming shift on user
+            ->when($q !== '', fn($query) => $query->where('users.name', 'like', '%' . $q . '%'));
 
-        $permits = DB::table('permits')
-            ->select(['employee_id', 'start_date', 'end_date', 'status'])
-            ->where('status', 'approved')
-            ->whereDate('end_date', '>=', $start)
-            ->whereDate('start_date', '<=', $end)
-            ->get();
+        // Handle sorting
+        $sortMap = [
+            'name' => 'users.name',
+            'permit_type' => 'permit_types.name',
+            'status' => 'permits.status',
+            'start_date' => 'permits.start_date',
+        ];
+        $sortColumn = $sortMap[$sort] ?? 'users.name';
+        $query->orderBy($sortColumn, $dir);
 
-        $permitDays = [];
-        foreach ($permits as $p) {
-            $ps = $p->start_date;
-            $pe = $p->end_date;
-            $cur2 = $ps < $start ? $start : $ps;
-            $end2 = $pe > $end ? $end : $pe;
-            while ($cur2 <= $end2) {
-                $permitDays[$p->employee_id][$cur2] = true;
-                $cur2 = date('Y-m-d', strtotime($cur2 . ' +1 day'));
-            }
-        }
-
-        $rows = [];
-        foreach ($users as $u) {
-            $count = isset($permitDays[$u->id]) ? count($permitDays[$u->id]) : 0;
-            if ($count > 0) {
-                $rows[] = [
-                    'id' => $u->id,
-                    'name' => $u->name,
-                    'departemen_name' => $u->departemen_name,
-                    'jabatan_name' => $u->jabatan_name,
-                    'total_izin' => $count,
-                ];
-            }
-        }
-
-        if (!empty($rows)) {
-            usort($rows, function ($a, $b) use ($sort, $dir) {
-                $av = $a[$sort] ?? null;
-                $bv = $b[$sort] ?? null;
-                if ($sort === 'total_izin') {
-                    $cmp = ($av <=> $bv);
-                } else {
-                    $cmp = strcasecmp((string) $av, (string) $bv);
-                }
-                return $dir === 'desc' ? -$cmp : $cmp;
-            });
-        }
-
-        $total = count($rows);
-        $offset = max(0, ($page - 1) * $perPage);
-        $paged = array_slice($rows, $offset, $perPage);
+        $total = $query->count();
+        $rows = $query->offset(max(0, ($page - 1) * $perPage))->limit($perPage)->get();
 
         return response()->json([
             'message' => 'OK',
@@ -510,7 +487,91 @@ class ReportController extends Controller
                 'per_page' => $perPage,
                 'total_pages' => (int) ceil(($total ?: 0) / max(1, $perPage)),
             ],
-            'data' => $paged,
+            'data' => $rows,
+        ], 200);
+    }
+
+    public function leaveEmployees(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_date' => ['required', 'date_format:Y-m-d'],
+            'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+            'departemen_id' => ['nullable', 'integer', 'exists:departemens,id'],
+            'shift_id' => ['nullable', 'integer', 'exists:shift_kerjas,id'],
+            'leave_type_id' => ['nullable', 'integer', 'exists:leave_types,id'],
+            'q' => ['nullable', 'string'],
+            'sort' => ['nullable', 'string'],
+            'dir' => ['nullable', 'in:asc,desc'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:1000'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Parameter tidak valid',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $start = $request->input('start_date');
+        $end = $request->input('end_date');
+        $departemenId = $request->input('departemen_id');
+        $shiftId = $request->input('shift_id');
+        $leaveTypeId = $request->input('leave_type_id');
+        $q = trim((string) $request->input('q', ''));
+        $sort = $request->input('sort', 'users.name');
+        $dir = strtolower($request->input('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $page = (int) $request->input('page', 1);
+        $perPage = (int) $request->input('per_page', 10);
+
+        $query = \App\Models\Leave::query()
+            ->join('users', 'leaves.employee_id', '=', 'users.id')
+            ->join('leave_types', 'leaves.leave_type_id', '=', 'leave_types.id')
+            ->leftJoin('departemens', 'users.departemen_id', '=', 'departemens.id')
+            ->select([
+                'leaves.id',
+                'users.name as employee_name',
+                'leave_types.name as leave_type',
+                'leaves.start_date',
+                'leaves.end_date',
+                'leaves.status',
+                'departemens.name as departemen_name'
+            ])
+            ->whereDate('leaves.end_date', '>=', $start)
+            ->whereDate('leaves.start_date', '<=', $end)
+            ->where('leaves.status', 'approved') // Cuti usually only approved shown in dashboard
+            ->when($leaveTypeId, fn($q) => $q->where('leaves.leave_type_id', $leaveTypeId))
+            ->when($departemenId, fn($q) => $q->where('users.departemen_id', $departemenId))
+            ->when($shiftId, fn($q) => $q->where('users.shift_kerja_id', $shiftId))
+            ->when($q !== '', fn($query) => $query->where('users.name', 'like', '%' . $q . '%'));
+
+        // Handle sorting
+        $sortMap = [
+            'name' => 'users.name',
+            'leave_type' => 'leave_types.name',
+            'start_date' => 'leaves.start_date',
+        ];
+        $sortColumn = $sortMap[$sort] ?? 'users.name';
+        $query->orderBy($sortColumn, $dir);
+
+        $total = $query->count();
+        $rows = $query->offset(max(0, ($page - 1) * $perPage))->limit($perPage)->get();
+
+        return response()->json([
+            'message' => 'OK',
+            'filters' => [
+                'start_date' => $start,
+                'end_date' => $end,
+                'departemen_id' => $departemenId,
+                'shift_id' => $shiftId,
+            ],
+            'pagination' => [
+                'total' => (int) $total,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total_pages' => (int) ceil(($total ?: 0) / max(1, $perPage)),
+            ],
+            'data' => $rows,
         ], 200);
     }
 

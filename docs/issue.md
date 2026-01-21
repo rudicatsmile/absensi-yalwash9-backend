@@ -32,3 +32,18 @@ File: `app/Filament/Resources/Leaves/Tables/LeavesTable.php`
                             // $year = $record->start_date->year;
                             $year = now()->year;
 ```
+
+File: `app/Services/Reports/AttendancePresenceService.php`
+
+### Location 4
+[AttendancePresenceService.php:L38-44](file:///d:/Softwares/projects/mobile/yalwash9/laravel-absensi-backend/app/Services/Reports/AttendancePresenceService.php#L38-44)
+
+```php
+        $permits = Permit::query()
+            ->select(['employee_id', 'permit_type_id', 'start_date', 'end_date', 'status'])
+            ->where('status', 'approved')
+            ->where('permit_type_id', '!=', 4) // Exclude permit_type_id 4
+            ->whereDate('end_date', '>=', $startDate)
+            ->whereDate('start_date', '<=', $endDate)
+            ->get();
+```

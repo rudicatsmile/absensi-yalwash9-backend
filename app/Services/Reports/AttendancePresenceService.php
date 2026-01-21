@@ -38,6 +38,7 @@ class AttendancePresenceService
         $permits = Permit::query()
             ->select(['employee_id', 'permit_type_id', 'start_date', 'end_date', 'status'])
             ->where('status', 'approved')
+            ->where('permit_type_id', '!=', 4) // Exclude permit_type_id 4
             ->whereDate('end_date', '>=', $startDate)
             ->whereDate('start_date', '<=', $endDate)
             ->get();

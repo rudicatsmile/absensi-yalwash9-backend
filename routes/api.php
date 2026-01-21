@@ -119,6 +119,7 @@ Route::get('/reports/present-employees', [ReportController::class, 'presentEmplo
 Route::get('/reports/present-employees', [ReportController::class, 'presentEmployees']);
 Route::get('/reports/absent-employees', [ReportController::class, 'absentEmployees']);
 Route::get('/reports/permit-employees', [ReportController::class, 'permitEmployees']);
+Route::get('/reports/leave-employees', [ReportController::class, 'leaveEmployees']);
 
 // Public endpoint for listing religious study events
 Route::get('/religious-study-events', [ReligiousStudyEventController::class, 'index'])->middleware(['auth:sanctum', 'throttle:60,1']);
