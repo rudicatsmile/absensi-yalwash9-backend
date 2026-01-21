@@ -356,6 +356,23 @@ class UsersTable
                                                 ->action(function ($set) {
                                                     $set('allowed_days', []);
                                                 }),
+                                            Action::make('sabtu_libur')
+                                                ->label('Sabtu Libur')
+                                                ->icon('heroicon-o-minus-circle')
+                                                ->action(function ($set, Get $get) {
+                                                    $month = (int) ($get('month') ?? (int) now()->format('n'));
+                                                    $year = (int) ($get('year') ?? (int) now()->format('Y'));
+                                                    $current = $get('allowed_days') ?? [];
+
+                                                    $newAllowed = [];
+                                                    foreach ($current as $day) {
+                                                        $date = \Carbon\Carbon::createFromDate($year, $month, (int) $day);
+                                                        if ($date->dayOfWeek !== 6) {
+                                                            $newAllowed[] = (string) $day;
+                                                        }
+                                                    }
+                                                    $set('allowed_days', $newAllowed);
+                                                }),
                                         ])
                                     ->columns(7)
                                     ->options(function (Get $get): array {

@@ -164,7 +164,9 @@ class LeavesTable
                                 Carbon::parse($record->end_date)
                             );
 
-                            $year = $record->start_date->year;
+                            // $year = $record->start_date->year;
+                            $year = now()->year;
+
                             $leaveBalance = LeaveBalance::where('employee_id', $record->employee_id)
                                 ->where('leave_type_id', $record->leave_type_id)
                                 ->where('year', $year)

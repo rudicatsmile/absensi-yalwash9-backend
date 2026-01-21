@@ -94,7 +94,8 @@ class LeaveController extends Controller
         $totalDays = WorkdayCalculator::countWorkdaysExcludingHolidays($startDate, $endDate);
 
         // Check leave balance
-        $year = $startDate->year;
+        // $year = $startDate->year;
+        $year = now()->year;
         $leaveBalance = LeaveBalance::where('employee_id', $userId)
             ->where('leave_type_id', $validated['leave_type_id'])
             ->where('year', $year)
@@ -107,11 +108,13 @@ class LeaveController extends Controller
         }
 
         if ($leaveBalance->remaining_days < $totalDays) {
-            return response()->json([
-                'message' => 'Insufficient leave balance',
-                'remaining_days' => $leaveBalance->remaining_days,
-                'requested_days' => $totalDays,
-            ], 400);
+            // return response()->json([
+            //     'message' => 'Insufficient leave balance',
+            //     'remaining_days' => $leaveBalance->remaining_days,
+            //     'requested_days' => $totalDays,
+            // ], 400);
+
+            $totalDays = $leaveBalance->remaining_days;
         }
 
         $validated['employee_id'] = $userId;
@@ -140,6 +143,7 @@ class LeaveController extends Controller
 
                 if (!in_array($dept_id, $excludedDepts)) {
                     $recipientIds = [515, 215];
+                    //$recipientIds = [258];     // 258 Rudi
                 } else {
                     $recipients = DB::select("SELECT id FROM users WHERE departemen_id = ? AND role IN ('manager', 'kepala_sub_bagian')", [$dept_id]);
                     $recipientIds = array_column($recipients, 'id');
