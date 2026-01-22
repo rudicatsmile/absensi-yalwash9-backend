@@ -24,6 +24,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Http\Request;
+
 
 class PermitsTable
 {
@@ -170,6 +172,30 @@ class PermitsTable
                                 'total_days' => $totalDays,
                             ]);
 
+                            //Do todo if permit type is 4 (Dinas)
+                            if ($record->permit_type_id === 4) {
+                                // Get default location (Gedung A)
+                                $companyLocation = \App\Models\CompanyLocation::find(1);
+                                $defaultLatLon = $companyLocation ? "{$companyLocation->latitude},{$companyLocation->longitude}" : '-6.1914783,106.9372911';
+
+                                //Create attendance record
+                                $attendanceData = [
+                                    'user_id' => $record->employee_id,
+                                    'shift_id' => $record->shift_id,
+                                    'company_location_id' => 1,    //Default Gedung A
+                                    'departemen_id' => $record->employee->departemen_id,
+                                    'date' => $record->start_date,
+                                    'time_in' => now()->setTimezone('Asia/Jakarta')->format('H:i:s'),
+                                    'time_out' => now()->setTimezone('Asia/Jakarta')->format('H:i:s'),
+                                    'latlon_in' => $defaultLatLon,
+                                    'latlon_out' => $defaultLatLon,
+                                    'status' => 'on_time',
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                ];
+                                \App\Models\Attendance::create($attendanceData);
+                            }
+
                             DB::commit();
 
                             //TODO: Send notification to employee
@@ -257,5 +283,30 @@ class PermitsTable
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50]);
+    }
+
+    private function getGeoLocation(Request $request)
+    {
+        // 1. Coba ambil dari input request (GPS perangkat)
+        $latlon = $request->input('latlon_in');
+
+        // 2. Validasi format latitude,longitude
+        if ($latlon && preg_match('/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/', $latlon)) {
+            return $latlon;
+        }
+
+        // 3. Fallback: Gunakan lokasi default perusahaan (Gedung A / ID 1)
+        // Ini menangani kasus: Perangkat tidak mendukung GPS, Izin lokasi ditolak, atau Sinyal GPS hilang
+        try {
+            $defaultLocation = \App\Models\CompanyLocation::find(1);
+            if ($defaultLocation) {
+                return "{$defaultLocation->latitude},{$defaultLocation->longitude}";
+            }
+        } catch (\Exception $e) {
+            // Ignore error
+        }
+
+        // 4. Default hardcoded jika database gagal
+        return '-6.1914783,106.9372911';
     }
 }

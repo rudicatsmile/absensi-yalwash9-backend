@@ -25,6 +25,64 @@ class PermitController extends Controller
         ], 200);
     }
 
+    public function insertAttendance(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'user_id' => 'required|integer|exists:users,id',
+                'shift_id' => 'required|integer|exists:shift_kerjas,id',
+                'company_location_id' => 'required|integer|exists:company_locations,id',
+                'departemen_id' => 'required|integer|exists:departemens,id',
+                'date' => 'required|date_format:Y-m-d',
+                'time_in' => 'nullable|date_format:H:i:s',
+                'time_out' => 'nullable|date_format:H:i:s',
+                'latlon_in' => 'nullable|string',
+                'latlon_out' => 'nullable|string',
+                'status' => 'required|string|in:on_time,late,absent,permit',
+            ]);
+
+            DB::beginTransaction();
+
+            $attendance = \App\Models\Attendance::create($validated);
+
+            DB::commit();
+
+            Log::info('attendance.insert_success', [
+                'user_id' => $validated['user_id'],
+                'date' => $validated['date'],
+                'actor_id' => auth()->id(),
+            ]);
+
+            return response()->json([
+                'message' => 'Attendance inserted successfully',
+                'data' => $attendance,
+                'status' => 'success',
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            Log::error('attendance.insert_validation_failed', [
+                'errors' => $e->errors(),
+                'actor_id' => auth()->id(),
+            ]);
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+                'status' => 'error',
+            ], 422);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('attendance.insert_failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'actor_id' => auth()->id(),
+            ]);
+            return response()->json([
+                'message' => 'Failed to insert attendance',
+                'status' => 'error',
+            ], 500);
+        }
+    }
+
     // Get all permits for current user
     public function index_old(Request $request)
     {
@@ -144,6 +202,27 @@ class PermitController extends Controller
             $validated['status'] = 'approved';
             $validated['approved_by'] = 513;   //Name : Admin User (role : admin)
             $validated['approved_at'] = now();
+
+            //Jika request permit_types = 4 (Izin Dinas)
+            //Auto save table attendance
+            if ($validated['permit_type_id'] === 4) {
+                $attendanceData = [
+                    'user_id' => $userId,
+                    'shift_id' => $validated['shift_id'],
+                    'company_location_id' => 1,    //Default Gedung A
+                    'departemen_id' => $request->user()->departemen_id,
+                    'date' => $validated['start_date'],
+                    'time_in' => now()->setTimezone('Asia/Jakarta')->format('H:i:s'),
+                    'time_out' => now()->setTimezone('Asia/Jakarta')->format('H:i:s'),
+                    'latlon_in' => $this->getGeoLocation($request),
+                    'latlon_out' => $this->getGeoLocation($request),
+                    'status' => 'on_time',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+                \App\Models\Attendance::create($attendanceData);
+
+            }
         } else {
 
         }
@@ -345,5 +424,39 @@ class PermitController extends Controller
             'message' => 'Permit request rejected successfully',
             'data' => $permit->load(['employee', 'permitType', 'approver']),
         ]);
+    }
+
+    /**
+     * Mendapatkan lokasi GPS (Latitude, Longitude) dari request atau fallback.
+     *
+     * Fungsi ini mencoba mengambil koordinat dari input client.
+     * Jika gagal (tidak didukung/izin ditolak/sinyal hilang), gunakan lokasi default perusahaan.
+     *
+     * @param Request $request
+     * @return string Format "latitude,longitude"
+     */
+    private function getGeoLocation(Request $request)
+    {
+        // 1. Coba ambil dari input request (GPS perangkat)
+        $latlon = $request->input('latlon_in');
+
+        // 2. Validasi format latitude,longitude
+        if ($latlon && preg_match('/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/', $latlon)) {
+            return $latlon;
+        }
+
+        // 3. Fallback: Gunakan lokasi default perusahaan (Gedung A / ID 1)
+        // Ini menangani kasus: Perangkat tidak mendukung GPS, Izin lokasi ditolak, atau Sinyal GPS hilang
+        try {
+            $defaultLocation = \App\Models\CompanyLocation::find(1);
+            if ($defaultLocation) {
+                return "{$defaultLocation->latitude},{$defaultLocation->longitude}";
+            }
+        } catch (\Exception $e) {
+            // Ignore error
+        }
+
+        // 4. Default hardcoded jika database gagal
+        return '-6.1914783,106.9372911';
     }
 }
