@@ -123,7 +123,33 @@ class LeaveController extends Controller
 
         // Handle attachment upload if provided
         if ($request->hasFile('attachment')) {
-            $path = $request->file('attachment')->store('leave_attachments', 'public');
+            $file = $request->file('attachment');
+            $path = '';
+
+            // Check if file is an image to compress it
+            if (str_starts_with($file->getMimeType(), 'image/')) {
+                // Requires: composer require intervention/image
+                // Uses Intervention Image v3
+                $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
+                $image = $manager->read($file);
+
+                // Resize if width is larger than 1280px to save space
+                if ($image->width() > 1280) {
+                    $image->scale(width: 1280);
+                }
+
+                // Compress to JPEG with 75% quality
+                $encoded = $image->toJpeg(quality: 75);
+
+                $filename = $file->hashName();
+                $path = 'leave_attachments/' . $filename;
+
+                \Illuminate\Support\Facades\Storage::disk('public')->put($path, $encoded);
+            } else {
+                // Non-image files (PDF, etc.)
+                $path = $file->store('leave_attachments', 'public');
+            }
+
             $validated['attachment_url'] = $path;
         }
 

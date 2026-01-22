@@ -9,6 +9,7 @@
         "barryvdh/laravel-dompdf": "^3.1",
         "endroid/qr-code": "^5.0",
         "filament/filament": "^4.0",
+        "intervention/image": "^3.11",
         "kreait/laravel-firebase": "6.1",
         "laravel/fortify": "^1.24",
         "laravel/framework": "^12.0",
