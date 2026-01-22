@@ -83,7 +83,7 @@ class LeaveController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'reason' => 'nullable|string',
-            'attachment' => 'nullable|file|max:2048', // Max 2MB
+            'attachment' => 'nullable|file|max:5048', // Max 5MB
         ]);
 
         $userId = $request->user()->id;

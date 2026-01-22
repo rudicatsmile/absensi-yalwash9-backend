@@ -43,7 +43,7 @@ class DropdownController extends Controller
         $jamSekarang = date('H:i');
 
         //Untuk pengajian malam Jumat. Jika Hari Kamis, jam 5 sore sampai jam 7 malam maka tampilkan semua daftar shift
-        if ($hariIni == 4 && $jamSekarang >= '17:00' && $jamSekarang <= '19:00') {
+        if ($hariIni == 4 && $jamSekarang >= '17:00' && $jamSekarang <= '20:00') {
             $items = DB::table('shift_kerjas')
                 ->join('shift_kerja_user', 'shift_kerja_user.shift_kerja_id', '=', 'shift_kerjas.id')
                 ->where('shift_kerja_user.user_id', (int) $userId)
