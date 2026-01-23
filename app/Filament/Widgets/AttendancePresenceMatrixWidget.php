@@ -10,6 +10,7 @@ use Carbon\CarbonPeriod;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Filament\Tables\Columns\Summarizers\Summarizer;
 
 class AttendancePresenceMatrixWidget extends BaseWidget
 {
@@ -19,6 +20,7 @@ class AttendancePresenceMatrixWidget extends BaseWidget
     protected array $dates = [];
     protected array $attendIndex = [];
     protected array $permitIndex = [];
+    protected ?array $filteredUserIds = null;
 
     protected function prepareMatrixState(): void
     {
@@ -67,13 +69,25 @@ class AttendancePresenceMatrixWidget extends BaseWidget
         $mode = session('apr_mode') ?? 'check';
 
         $columns = [
-            TextColumn::make('number')->label('No')->rowIndex(),
-            TextColumn::make('name')->label('Nama')->state(fn(User $r) => $r->name)->searchable(),
+            TextColumn::make('number')
+                ->label('No')
+                ->rowIndex(),
+            TextColumn::make('name')
+                ->label('Nama')
+                ->state(fn(User $r) => $r->name)
+                ->searchable()
+                ->summarize(
+                    $mode === 'jumlah shift'
+                    ? Summarizer::make()
+                        // ->label('Grand Total')
+                        ->using(fn() => 'Grand Total')
+                    : []
+                ),
         ];
 
         foreach ($this->dates as $d) {
             $label = Carbon::parse($d)->format('d-m-Y');
-            $columns[] = TextColumn::make('date_' . $d)
+            $column = TextColumn::make('date_' . $d)
                 ->label($label)
                 ->state(function (User $record) use ($d, $mode) {
                     $key = $record->id . '|' . $d;
@@ -93,6 +107,27 @@ class AttendancePresenceMatrixWidget extends BaseWidget
                     return '✖';
                 })
                 ->alignCenter();
+
+            if ($mode === 'jumlah shift') {
+                $column->summarize(
+                    Summarizer::make()
+                        ->label('')
+                        ->using(function ($query) use ($d) {
+                            if ($this->filteredUserIds === null) {
+                                $this->filteredUserIds = $query->pluck('users.id')->toArray();
+                            }
+                            $sum = 0;
+                            foreach ($this->filteredUserIds as $uid) {
+                                $key = $uid . '|' . $d;
+                                if (isset($this->attendIndex[$key])) {
+                                    $sum += count($this->attendIndex[$key]);
+                                }
+                            }
+                            return $sum;
+                        })
+                );
+            }
+            $columns[] = $column;
         }
 
         if ($mode === 'jumlah shift') {
@@ -108,7 +143,26 @@ class AttendancePresenceMatrixWidget extends BaseWidget
                     }
                     return $total;
                 })
-                ->alignCenter();
+                ->alignCenter()
+                ->summarize(
+                    Summarizer::make()
+                        ->label('')
+                        ->using(function ($query) {
+                            if ($this->filteredUserIds === null) {
+                                $this->filteredUserIds = $query->pluck('users.id')->toArray();
+                            }
+                            $grandTotal = 0;
+                            foreach ($this->filteredUserIds as $uid) {
+                                foreach ($this->dates as $d) {
+                                    $key = $uid . '|' . $d;
+                                    if (isset($this->attendIndex[$key])) {
+                                        $grandTotal += count($this->attendIndex[$key]);
+                                    }
+                                }
+                            }
+                            return $grandTotal;
+                        })
+                );
         }
 
         return $table
