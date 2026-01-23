@@ -9,6 +9,8 @@ use App\Models\ShiftKerja;
 use App\Support\WorkdayCalculator;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use App\Models\EmployeeWorkSchedule;
+use Illuminate\Support\Facades\Log;
 
 class AttendanceController extends Controller
 {
@@ -202,7 +204,7 @@ class AttendanceController extends Controller
     public function isCheckedin(Request $request)
     {
         $shiftKerjaId = $request->input('shiftKerjaId', $request->input('shift_kerja_id'));
-
+        //echo  $shiftKerjaId.' ---';
         // get today attendance
         $attendance = Attendance::where('user_id', $request->user()->id)
             ->when($shiftKerjaId !== null && $shiftKerjaId !== '', function ($query) use ($shiftKerjaId) {
@@ -220,9 +222,59 @@ class AttendanceController extends Controller
 
         $isCheckout = $attendance ? $attendance->time_out : false;
 
+        //Cek apakah pegawai hari ini memiliki hak bekerja
+        // Default true: jika data tidak ditemukan atau terjadi error, anggap pegawai boleh bekerja
+        $allowedToWork = true;
+
+        try {
+            $today = now();
+            // Ambil ID shift dari request atau dari profil pegawai
+            $targetShiftId = $shiftKerjaId ? (int) $shiftKerjaId : $request->user()->shift_kerja_id;
+
+            //var_dump("Controller Check:");
+            //var_dump("User ID: " . $request->user()->id);
+            //var_dump("Target Shift ID: " . $targetShiftId);
+            //var_dump("Today Month: " . $today->month . ' :: '. $today->year);
+            //var_dump("Today Year: " . $today->year);
+
+            if ($targetShiftId) {
+                // Log::info("Checking schedule for User: {$request->user()->id}, Shift: {$targetShiftId}, Month: {$today->month}, Year: {$today->year}");
+                $schedule = EmployeeWorkSchedule::where('user_id', $request->user()->id)
+                    ->where('shift_id', $targetShiftId)
+                    ->where('month', $today->month)
+                    ->where('year', $today->year)
+                    ->first();
+
+                if ($schedule) {
+                    $currentDay = (string) $today->day;
+                    // Cek apakah hari ini (allowed_day) bernilai true
+                    if (isset($schedule->allowed_days[$currentDay])) {
+                        // Jika ada setting untuk hari ini, ikuti setting tersebut
+                        $allowedToWork = $schedule->allowed_days[$currentDay] === true;
+                    }
+                    // Jika tidak ada setting untuk hari ini, tetap true (default)
+                    //var_dump("Allowed To Work: " . $allowedToWork) ;
+                } else {
+                    // Data tidak ditemukan, tetap true (default)
+                    //var_dump("Not Allowed To Work: ") ;
+                    Log::info("Schedule not found for User: {$request->user()->id}, Shift: {$targetShiftId}, Month: {$today->month}, Year: {$today->year}. Allowed to work by default.");
+                }
+            }
+        } catch (\Exception $e) {
+            // Jika terjadi error (koneksi db, dll), log error dan tetap perbolehkan bekerja (fail open)
+            Log::error('Error checking work rights: ' . $e->getMessage());
+            $allowedToWork = true;
+        }
+        //jika $allowedToWork false, maka $attendance = false dan $isCheckout = false
+        if (!$allowedToWork) {
+            $attendance = true;
+            $isCheckout = true;
+        }
+
         return response([
             'checkedin' => $attendance ? true : false,
             'checkedout' => $isCheckout ? true : false,
+            'allowed_to_work' => $allowedToWork,
         ], 200);
     }
 
