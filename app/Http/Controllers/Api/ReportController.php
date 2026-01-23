@@ -213,7 +213,7 @@ class ReportController extends Controller
             'start_date' => ['required', 'date_format:Y-m-d'],
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'departemen_id' => ['nullable', 'integer', 'exists:departemens,id'],
-            'shift_id' => ['nullable', 'integer', 'exists:shift_kerjas,id'],
+            'shift_id' => ['nullable'], // Accepts integer or array of integers
             'status' => ['nullable', 'in:semua,Hadir,Tidak Hadir'],
             'mode' => ['nullable', 'in:check,jumlah shift'],
             'format' => ['nullable', 'in:pdf,xlsx']
@@ -230,6 +230,14 @@ class ReportController extends Controller
         $endDate = $request->input('end_date');
         $departemenId = $request->input('departemen_id');
         $shiftId = $request->input('shift_id');
+
+        // Ensure shiftId is properly formatted if it's an array string representation or similar,
+        // but typically Laravel handles array input from [] parameters correctly.
+        // If it's a comma separated string, explode it.
+        if (is_string($shiftId) && str_contains($shiftId, ',')) {
+            $shiftId = explode(',', $shiftId);
+        }
+
         $status = $request->input('status', 'semua');
         $mode = $request->input('mode', 'check');
 
@@ -332,7 +340,7 @@ class ReportController extends Controller
             'start_date' => ['required', 'date_format:Y-m-d'],
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'departemen_id' => ['nullable', 'integer', 'exists:departemens,id'],
-            'shift_id' => ['nullable', 'integer', 'exists:shift_kerjas,id'],
+            'shift_id' => ['nullable'], // Accepts integer or array
             'q' => ['nullable', 'string'],
             'sort' => ['nullable', 'in:name,departemen_name,total_hadir'],
             'dir' => ['nullable', 'in:asc,desc'],
@@ -351,6 +359,11 @@ class ReportController extends Controller
         $end = $request->input('end_date');
         $departemenId = $request->input('departemen_id');
         $shiftId = $request->input('shift_id');
+
+        if (is_string($shiftId) && str_contains($shiftId, ',')) {
+            $shiftId = explode(',', $shiftId);
+        }
+
         $q = trim((string) $request->input('q', ''));
         $sort = $request->input('sort', 'name');
         $dir = strtolower($request->input('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
@@ -362,7 +375,13 @@ class ReportController extends Controller
             ->leftJoin('departemens', 'users.departemen_id', '=', 'departemens.id')
             ->whereBetween('attendances.date', [$start, $end])
             ->when($departemenId, fn($q2) => $q2->where('users.departemen_id', (int) $departemenId))
-            ->when($shiftId, fn($q2) => $q2->where('attendances.shift_id', (int) $shiftId))
+            ->when(!empty($shiftId), function ($q2) use ($shiftId) {
+                if (is_array($shiftId)) {
+                    $q2->whereIn('attendances.shift_id', $shiftId);
+                } else {
+                    $q2->where('attendances.shift_id', (int) $shiftId);
+                }
+            })
             ->when($q !== '', fn($q2) => $q2->where('users.name', 'like', '%' . $q . '%'));
 
         $total = (clone $base)->selectRaw('COUNT(DISTINCT users.id) as aggregate')->value('aggregate') ?? 0;
@@ -408,7 +427,7 @@ class ReportController extends Controller
             'start_date' => ['required', 'date_format:Y-m-d'],
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'departemen_id' => ['nullable', 'integer', 'exists:departemens,id'],
-            'shift_id' => ['nullable', 'integer', 'exists:shift_kerjas,id'],
+            'shift_id' => ['nullable'], // Accepts integer or array
             'permit_type_id' => ['nullable', 'integer', 'exists:permit_types,id'],
             'status' => ['nullable', 'string'],
             'q' => ['nullable', 'string'],
@@ -429,6 +448,11 @@ class ReportController extends Controller
         $end = $request->input('end_date');
         $departemenId = $request->input('departemen_id');
         $shiftId = $request->input('shift_id');
+
+        if (is_string($shiftId) && str_contains($shiftId, ',')) {
+            $shiftId = explode(',', $shiftId);
+        }
+
         $permitTypeId = $request->input('permit_type_id');
         $status = $request->input('status');
         $q = trim((string) $request->input('q', ''));
@@ -454,10 +478,16 @@ class ReportController extends Controller
             ->whereDate('permits.end_date', '>=', $start)
             ->whereDate('permits.start_date', '<=', $end)
             ->when($status, fn($q) => $q->where('permits.status', $status))
-            ->when(!$status, fn($q) => $q->where('permits.status', 'approved')) // Default only approved if not specified, or maybe show all? User said "mengajukan", maybe all? But dashboard stats usually approved. Let's filter by approved by default if not filtered. Actually widget sends 'approved' status filter usually.
+            ->when(!$status, fn($q) => $q->where('permits.status', 'approved'))
             ->when($permitTypeId, fn($q) => $q->where('permits.permit_type_id', $permitTypeId))
             ->when($departemenId, fn($q) => $q->where('users.departemen_id', $departemenId))
-            ->when($shiftId, fn($q) => $q->where('users.shift_kerja_id', $shiftId)) // Assuming shift on user
+            ->when(!empty($shiftId), function ($q) use ($shiftId) {
+                if (is_array($shiftId)) {
+                    $q->whereIn('users.shift_kerja_id', $shiftId);
+                } else {
+                    $q->where('users.shift_kerja_id', $shiftId);
+                }
+            })
             ->when($q !== '', fn($query) => $query->where('users.name', 'like', '%' . $q . '%'));
 
         // Handle sorting

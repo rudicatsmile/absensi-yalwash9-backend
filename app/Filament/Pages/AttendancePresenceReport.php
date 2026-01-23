@@ -31,7 +31,7 @@ class AttendancePresenceReport extends Page
     public ?string $start_date = null;
     public ?string $end_date = null;
     public ?int $departemen_id = null;
-    public ?int $shift_id = null;
+    public array $shift_id = [];
     public ?string $status = 'semua';
     public ?string $mode = 'check';
 
@@ -42,7 +42,7 @@ class AttendancePresenceReport extends Page
         $this->start_date = session('apr_start_date') ?? $this->start_date ?? now()->toDateString();
         $this->end_date = session('apr_end_date') ?? $this->end_date ?? now()->toDateString();
         $this->departemen_id = session('apr_departemen_id') ?? ((auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) ? auth()->user()->departemen_id : null);
-        $this->shift_id = session('apr_shift_id') ?? $this->shift_id;
+        $this->shift_id = session('apr_shift_id') ?? [];
         $this->status = session('apr_status') ?? $this->status ?? 'semua';
         $this->mode = session('apr_mode') ?? $this->mode ?? 'check';
         $this->syncFiltersToSession();
@@ -68,24 +68,24 @@ class AttendancePresenceReport extends Page
                 ->color('gray')
                 ->modalHeading('Filter Laporan')
                 ->form([
-                        DatePicker::make('start_date')->label('Tanggal Mulai')->native(false)->displayFormat('d-m-Y')->default($this->start_date),
-                        DatePicker::make('end_date')->label('Tanggal Akhir')->native(false)->displayFormat('d-m-Y')->default($this->end_date),
-                        Select::make('departemen_id')->label('Departemen')->options(function () {
-                            $base = Departemen::query()->orderBy('id');
-                            if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
-                                $base->whereKey(auth()->user()->departemen_id);
-                            }
-                            return [null => 'Semua Departemen'] + $base->pluck('name', 'id')->toArray();
-                        })->searchable()->native(false)->default($this->departemen_id),
-                        Select::make('shift_id')->label('Shift Kerja')->options(fn() => [null => 'Semua Shift'] + ShiftKerja::query()->orderBy('name')->pluck('name', 'id')->toArray())->searchable()->native(false)->default($this->shift_id),
-                        ToggleButtons::make('status')->label('Status')->options(['semua' => 'Semua', 'Hadir' => 'Hadir', 'Tidak Hadir' => 'Tidak Hadir'])->inline()->default($this->status),
-                        ToggleButtons::make('mode')->label('Tampilan Sel')->options(['check' => 'Check', 'jumlah shift' => 'Jumlah Shift'])->inline()->default($this->mode),
-                    ])
+                    DatePicker::make('start_date')->label('Tanggal Mulai')->native(false)->displayFormat('d-m-Y')->default($this->start_date),
+                    DatePicker::make('end_date')->label('Tanggal Akhir')->native(false)->displayFormat('d-m-Y')->default($this->end_date),
+                    Select::make('departemen_id')->label('Departemen')->options(function () {
+                        $base = Departemen::query()->orderBy('id');
+                        if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
+                            $base->whereKey(auth()->user()->departemen_id);
+                        }
+                        return [null => 'Semua Departemen'] + $base->pluck('name', 'id')->toArray();
+                    })->searchable()->native(false)->default($this->departemen_id),
+                    Select::make('shift_id')->label('Shift Kerja')->multiple()->options(fn() => ShiftKerja::query()->orderBy('name')->pluck('name', 'id')->toArray())->searchable()->native(false)->default($this->shift_id),
+                    ToggleButtons::make('status')->label('Status')->options(['semua' => 'Semua', 'Hadir' => 'Hadir', 'Tidak Hadir' => 'Tidak Hadir'])->inline()->default($this->status),
+                    ToggleButtons::make('mode')->label('Tampilan Sel')->options(['check' => 'Check', 'jumlah shift' => 'Jumlah Shift'])->inline()->default($this->mode),
+                ])
                 ->action(function (array $data): void {
                     $this->start_date = $data['start_date'] ?? $this->start_date;
                     $this->end_date = $data['end_date'] ?? $this->end_date;
                     $this->departemen_id = $data['departemen_id'] ?? $this->departemen_id;
-                    $this->shift_id = $data['shift_id'] ?? $this->shift_id;
+                    $this->shift_id = $data['shift_id'] ?? [];
                     $this->status = $data['status'] ?? $this->status;
                     $this->mode = $data['mode'] ?? $this->mode;
                     $this->syncFiltersToSession();
@@ -121,7 +121,7 @@ class AttendancePresenceReport extends Page
             'start_date' => ['required', 'date_format:Y-m-d'],
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'departemen_id' => ['nullable', 'integer'],
-            'shift_id' => ['nullable', 'integer'],
+            'shift_id' => ['nullable', 'array'],
             'status' => ['required', 'in:semua,Hadir,Tidak Hadir'],
             'mode' => ['required', 'in:check,jumlah shift'],
         ])->validate();
@@ -197,15 +197,21 @@ class AttendancePresenceReport extends Page
 
         return User::query()
             ->select([
-                    'users.id',
-                    'users.name',
-                    DB::raw('COUNT(DISTINCT attendances.date) as total_hadir'),
-                    DB::raw('(SELECT name FROM departemens WHERE departemens.id = users.departemen_id) as departemen_name'),
-                ])
+                'users.id',
+                'users.name',
+                DB::raw('COUNT(DISTINCT attendances.date) as total_hadir'),
+                DB::raw('(SELECT name FROM departemens WHERE departemens.id = users.departemen_id) as departemen_name'),
+            ])
             ->join('attendances', 'users.id', '=', 'attendances.user_id')
             ->whereBetween('attendances.date', [$start, $end])
             ->when($departemenId, fn($q) => $q->where('users.departemen_id', $departemenId))
-            ->when($shiftId, fn($q) => $q->where('attendances.shift_id', $shiftId))
+            ->when(!empty($shiftId), function ($q) use ($shiftId) {
+                if (is_array($shiftId)) {
+                    $q->whereIn('attendances.shift_id', $shiftId);
+                } else {
+                    $q->where('attendances.shift_id', $shiftId);
+                }
+            })
             // Filter tambahan: hanya status hadir 'on_time' atau 'late'
             // ->whereIn('attendances.status', ['on_time', 'late'])
             ->groupBy('users.id', 'users.name', 'users.departemen_id')
@@ -226,7 +232,7 @@ class AttendancePresenceReport extends Page
 
         // Styling: gunakan Tailwind utilitas untuk input & tombol agar konsisten di modal HTML,
         // tetap gunakan kerangka tabel Filament (fi-table-con, fi-table) untuk nuansa bawaan.
-        $table = '<div class="fi-table-con w-full max-w-full overflow-x-auto rounded-lg shadow ring-1 ring-gray-950/5 dark:ring-white/10" x-data=\'{"rows": [], "total": 0, "page": 1, "perPage": 10, "sort": "name", "dir": "asc", "q": "", "filters": ' . $filtersJson . ', "loading": false, "error": null, async "load"(){ try { this.loading=true; this.error=null; const base = { start_date: this.filters.start_date, end_date: this.filters.end_date, q: this.q, sort: this.sort, dir: this.dir, page: this.page, per_page: this.perPage }; if (this.filters.departemen_id !== null && this.filters.departemen_id !== undefined && this.filters.departemen_id !== "") { base.departemen_id = this.filters.departemen_id; } if (this.filters.shift_id !== null && this.filters.shift_id !== undefined && this.filters.shift_id !== "") { base.shift_id = this.filters.shift_id; } const params = new URLSearchParams(base); const url = window.location.origin + "/api/reports/present-employees?" + params.toString(); const res = await fetch(url); const json = await res.json(); if (!res.ok) { this.error = (json && json.message) ? json.message : "Gagal memuat"; this.rows = []; this.total = 0; } else { this.rows = json.data || []; this.total = (json.pagination && json.pagination.total) ? json.pagination.total : this.rows.length; } } catch(e) { this.error = "Gagal memuat"; this.rows = []; this.total = 0; } finally { this.loading=false; } }, "setSort"(key){ if(this.sort===key){ this.dir=this.dir==="asc"?"desc":"asc"; } else { this.sort=key; this.dir="asc"; } this.page=1; this.load(); }, "totalPages"(){ return Math.max(1, Math.ceil(this.total/this.perPage)); }, "goto"(p){ if(p<1||p>this.totalPages()) return; this.page=p; this.load(); }}\' x-init="load()">'
+        $table = '<div class="fi-table-con w-full max-w-full overflow-x-auto rounded-lg shadow ring-1 ring-gray-950/5 dark:ring-white/10" x-data=\'{"rows": [], "total": 0, "page": 1, "perPage": 10, "sort": "name", "dir": "asc", "q": "", "filters": ' . $filtersJson . ', "loading": false, "error": null, async "load"(){ try { this.loading=true; this.error=null; const base = { start_date: this.filters.start_date, end_date: this.filters.end_date, q: this.q, sort: this.sort, dir: this.dir, page: this.page, per_page: this.perPage }; if (this.filters.departemen_id !== null && this.filters.departemen_id !== undefined && this.filters.departemen_id !== "") { base.departemen_id = this.filters.departemen_id; } const params = new URLSearchParams(base); if (this.filters.shift_id !== null && this.filters.shift_id !== undefined) { if (Array.isArray(this.filters.shift_id)) { this.filters.shift_id.forEach(id => params.append("shift_id[]", id)); } else if (this.filters.shift_id !== "") { params.append("shift_id", this.filters.shift_id); } } const url = window.location.origin + "/api/reports/present-employees?" + params.toString(); const res = await fetch(url); const json = await res.json(); if (!res.ok) { this.error = (json && json.message) ? json.message : "Gagal memuat"; this.rows = []; this.total = 0; } else { this.rows = json.data || []; this.total = (json.pagination && json.pagination.total) ? json.pagination.total : this.rows.length; } } catch(e) { this.error = "Gagal memuat"; this.rows = []; this.total = 0; } finally { this.loading=false; } }, "setSort"(key){ if(this.sort===key){ this.dir=this.dir==="asc"?"desc":"asc"; } else { this.sort=key; this.dir="asc"; } this.page=1; this.load(); }, "totalPages"(){ return Math.max(1, Math.ceil(this.total/this.perPage)); }, "goto"(p){ if(p<1||p>this.totalPages()) return; this.page=p; this.load(); }}\' x-init="load()">'
             . '<div class="flex items-center justify-between p-3">'
             . '<input type="text" class="w-64 px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:border-white/10" placeholder="Cari nama..." x-model.debounce.300ms="q" @input="page=1; load()">'
             . '<div class="flex items-center gap-2">'
@@ -280,7 +286,7 @@ class AttendancePresenceReport extends Page
         ];
         $filtersJson = json_encode($filters, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-        $table = '<div class="fi-table-con w-full max-w-full overflow-x-auto rounded-lg shadow ring-1 ring-gray-950/5 dark:ring-white/10" x-data=\'{"rows": [], "total": 0, "page": 1, "perPage": 10, "sort": "name", "dir": "asc", "q": "", "filters": ' . $filtersJson . ', "loading": false, "error": null, async "load"(){ try { this.loading=true; this.error=null; const base = { start_date: this.filters.start_date, end_date: this.filters.end_date, q: this.q, sort: this.sort, dir: this.dir, page: this.page, per_page: this.perPage }; if (this.filters.departemen_id !== null && this.filters.departemen_id !== undefined && this.filters.departemen_id !== "") { base.departemen_id = this.filters.departemen_id; } if (this.filters.shift_id !== null && this.filters.shift_id !== undefined && this.filters.shift_id !== "") { base.shift_id = this.filters.shift_id; } const params = new URLSearchParams(base); const url = window.location.origin + "/api/reports/absent-employees?" + params.toString(); const res = await fetch(url); const json = await res.json(); if (!res.ok) { this.error = (json && json.message) ? json.message : "Gagal memuat"; this.rows = []; this.total = 0; } else { this.rows = json.data || []; this.total = (json.pagination && json.pagination.total) ? json.pagination.total : this.rows.length; } } catch(e) { this.error = "Gagal memuat"; this.rows = []; this.total = 0; } finally { this.loading=false; } }, "setSort"(key){ if(this.sort===key){ this.dir=this.dir==="asc"?"desc":"asc"; } else { this.sort=key; this.dir="asc"; } this.page=1; this.load(); }, "totalPages"(){ return Math.max(1, Math.ceil(this.total/this.perPage)); }, "goto"(p){ if(p<1||p>this.totalPages()) return; this.page=p; this.load(); }}\' x-init="load()">'
+        $table = '<div class="fi-table-con w-full max-w-full overflow-x-auto rounded-lg shadow ring-1 ring-gray-950/5 dark:ring-white/10" x-data=\'{"rows": [], "total": 0, "page": 1, "perPage": 10, "sort": "name", "dir": "asc", "q": "", "filters": ' . $filtersJson . ', "loading": false, "error": null, async "load"(){ try { this.loading=true; this.error=null; const base = { start_date: this.filters.start_date, end_date: this.filters.end_date, q: this.q, sort: this.sort, dir: this.dir, page: this.page, per_page: this.perPage }; if (this.filters.departemen_id !== null && this.filters.departemen_id !== undefined && this.filters.departemen_id !== "") { base.departemen_id = this.filters.departemen_id; } const params = new URLSearchParams(base); if (this.filters.shift_id !== null && this.filters.shift_id !== undefined) { if (Array.isArray(this.filters.shift_id)) { this.filters.shift_id.forEach(id => params.append("shift_id[]", id)); } else if (this.filters.shift_id !== "") { params.append("shift_id", this.filters.shift_id); } } const url = window.location.origin + "/api/reports/absent-employees?" + params.toString(); const res = await fetch(url); const json = await res.json(); if (!res.ok) { this.error = (json && json.message) ? json.message : "Gagal memuat"; this.rows = []; this.total = 0; } else { this.rows = json.data || []; this.total = (json.pagination && json.pagination.total) ? json.pagination.total : this.rows.length; } } catch(e) { this.error = "Gagal memuat"; this.rows = []; this.total = 0; } finally { this.loading=false; } }, "setSort"(key){ if(this.sort===key){ this.dir=this.dir==="asc"?"desc":"asc"; } else { this.sort=key; this.dir="asc"; } this.page=1; this.load(); }, "totalPages"(){ return Math.max(1, Math.ceil(this.total/this.perPage)); }, "goto"(p){ if(p<1||p>this.totalPages()) return; this.page=p; this.load(); }}\' x-init="load()">'
             . '<div class="flex items-center justify-between p-3">'
             . '<input type="text" class="w-64 px-2 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:border-white/10" placeholder="Cari nama..." x-model.debounce.300ms="q" @input="page=1; load()">'
             . '<div class="flex items-center gap-2">'

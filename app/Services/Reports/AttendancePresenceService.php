@@ -15,7 +15,7 @@ class AttendancePresenceService
         string $startDate,
         string $endDate,
         ?int $departemenId,
-        ?int $shiftId,
+        $shiftId, // Can be int or array
         string $statusFilter,
         string $mode
     ): array {
@@ -30,7 +30,13 @@ class AttendancePresenceService
 
         $attendances = Attendance::query()
             ->select(['user_id', 'date'])
-            ->when($shiftId, fn($q) => $q->where('shift_id', $shiftId))
+            ->when(!empty($shiftId), function ($q) use ($shiftId) {
+                if (is_array($shiftId)) {
+                    $q->whereIn('shift_id', $shiftId);
+                } else {
+                    $q->where('shift_id', $shiftId);
+                }
+            })
             ->whereBetween('date', [$startDate, $endDate])
             ->get()
             ->groupBy(fn($a) => $a->user_id . '|' . $a->date);

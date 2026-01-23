@@ -119,9 +119,39 @@ class AttendanceController extends Controller
             return response(['message' => 'Checkin first'], 400);
         }
 
+        // Calculate early leave
+        $earlyLeaveMinutes = 0;
+        $shift = ShiftKerja::find($shiftKerjaId);
+
+        if ($shift) {
+            $endTimeString = $shift->getRawOriginal('end_time') ?? $shift->end_time?->format('H:i:s');
+
+            if ($endTimeString) {
+                $normalizedEndTime = strlen($endTimeString) === 5 ? $endTimeString . ':00' : $endTimeString;
+                $attendanceDate = Carbon::parse($attendance->date);
+
+                $shiftEnd = Carbon::createFromFormat(
+                    'Y-m-d H:i:s',
+                    $attendanceDate->toDateString() . ' ' . $normalizedEndTime,
+                    config('app.timezone')
+                );
+
+                if ($shift->is_cross_day) {
+                    $shiftEnd->addDay();
+                }
+
+                $checkOutTime = now();
+
+                if ($checkOutTime->lessThan($shiftEnd)) {
+                    $earlyLeaveMinutes = (int) $checkOutTime->diffInMinutes($shiftEnd);
+                }
+            }
+        }
+
         // save checkout
         $attendance->time_out = now()->toTimeString();
         $attendance->latlon_out = $request->latitude . ',' . $request->longitude;
+        $attendance->early_leave_minutes = $earlyLeaveMinutes;
         $attendance->save();
 
         return response([
@@ -154,9 +184,39 @@ class AttendanceController extends Controller
             return response(['message' => 'Checkin first'], 400);
         }
 
+        // Calculate early leave
+        $earlyLeaveMinutes = 0;
+        $shift = ShiftKerja::find($shiftKerjaId);
+
+        if ($shift) {
+            $endTimeString = $shift->getRawOriginal('end_time') ?? $shift->end_time?->format('H:i:s');
+
+            if ($endTimeString) {
+                $normalizedEndTime = strlen($endTimeString) === 5 ? $endTimeString . ':00' : $endTimeString;
+                $attendanceDate = Carbon::parse($attendance->date);
+
+                $shiftEnd = Carbon::createFromFormat(
+                    'Y-m-d H:i:s',
+                    $attendanceDate->toDateString() . ' ' . $normalizedEndTime,
+                    config('app.timezone')
+                );
+
+                if ($shift->is_cross_day) {
+                    $shiftEnd->addDay();
+                }
+
+                $checkOutTime = now();
+
+                if ($checkOutTime->lessThan($shiftEnd)) {
+                    $earlyLeaveMinutes = (int) $checkOutTime->diffInMinutes($shiftEnd);
+                }
+            }
+        }
+
         // save checkout
         $attendance->time_out = now()->toTimeString();
         $attendance->latlon_out = $request->latitude . ',' . $request->longitude;
+        $attendance->early_leave_minutes = $earlyLeaveMinutes;
         $attendance->save();
 
         return response([

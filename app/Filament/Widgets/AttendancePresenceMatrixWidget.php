@@ -24,6 +24,7 @@ class AttendancePresenceMatrixWidget extends BaseWidget
 
     protected function prepareMatrixState(): void
     {
+        $this->filteredUserIds = null;
         $start = session('apr_start_date') ?? now()->toDateString();
         $end = session('apr_end_date') ?? now()->toDateString();
         $shiftId = session('apr_shift_id');
@@ -33,7 +34,13 @@ class AttendancePresenceMatrixWidget extends BaseWidget
 
         $attendances = Attendance::query()
             ->select(['user_id', 'date'])
-            ->when($shiftId, fn($q) => $q->where('shift_id', $shiftId))
+            ->when(!empty($shiftId), function ($q) use ($shiftId) {
+                if (is_array($shiftId)) {
+                    $q->whereIn('shift_id', $shiftId);
+                } else {
+                    $q->where('shift_id', $shiftId);
+                }
+            })
             ->whereBetween('date', [$start, $end])
             ->get()
             ->groupBy(fn($a) => $a->user_id . '|' . $a->date);
