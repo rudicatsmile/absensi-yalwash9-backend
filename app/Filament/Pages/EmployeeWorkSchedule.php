@@ -13,7 +13,9 @@ class EmployeeWorkSchedule extends Page
 
     protected static ?string $navigationLabel = 'Pengaturan Izin Masuk';
 
-    // protected static UnitEnum|string|null $navigationGroup = 'Master Data';
+    protected static bool $shouldRegisterNavigation = false;
+
+    protected static UnitEnum|string|null $navigationGroup = 'Master Data';
 
     protected static ?string $slug = 'employee-work-schedule';
 
