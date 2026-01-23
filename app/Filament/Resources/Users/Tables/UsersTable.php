@@ -14,6 +14,8 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Placeholder;
+use Illuminate\Support\HtmlString;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\ImageColumn;
@@ -202,6 +204,16 @@ class UsersTable
                             return auth()->check() && auth()->user()->role === 'admin';
                         })
                         ->form([
+                            Placeholder::make('employee_details')
+                                ->label('Informasi Pegawai')
+                                ->content(fn($record) => new HtmlString(
+                                    '<div class="px-4 py-3 bg-gray-50 rounded-lg border border-gray-200">' .
+                                    '<div class="font-bold text-lg text-gray-800">' . e($record->name) . '</div>' .
+                                    '<div class="text-sm text-gray-600 mt-1">' .
+                                    '<span class="font-medium">Departemen:</span> ' . e($record->departemen?->name ?? '-') .
+                                    '</div>' .
+                                    '</div>'
+                                )),
                             Select::make('month')
                                 ->label('Bulan')
                                 ->options([
