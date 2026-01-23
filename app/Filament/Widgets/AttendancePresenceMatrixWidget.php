@@ -64,6 +64,7 @@ class AttendancePresenceMatrixWidget extends BaseWidget
 
         $departemenId = session('apr_departemen_id');
         $status = session('apr_status') ?? 'semua';
+        $mode = session('apr_mode') ?? 'check';
 
         $columns = [
             TextColumn::make('number')->label('No')->rowIndex(),
@@ -74,10 +75,15 @@ class AttendancePresenceMatrixWidget extends BaseWidget
             $label = Carbon::parse($d)->format('d-m-Y');
             $columns[] = TextColumn::make('date_' . $d)
                 ->label($label)
-                ->state(function (User $record) use ($d) {
+                ->state(function (User $record) use ($d, $mode) {
                     $key = $record->id . '|' . $d;
                     $presentCount = isset($this->attendIndex[$key]) ? count($this->attendIndex[$key]) : 0;
                     $permitTypeId = $this->permitIndex[$record->id][$d]['permit_type_id'] ?? null;
+
+                    if ($mode === 'jumlah shift') {
+                        return $presentCount;
+                    }
+
                     if ($presentCount > 0) {
                         return '✔';
                     }
@@ -85,6 +91,22 @@ class AttendancePresenceMatrixWidget extends BaseWidget
                         return 'ℹ';
                     }
                     return '✖';
+                })
+                ->alignCenter();
+        }
+
+        if ($mode === 'jumlah shift') {
+            $columns[] = TextColumn::make('total_shifts')
+                ->label('Total')
+                ->state(function (User $record) {
+                    $total = 0;
+                    foreach ($this->dates as $d) {
+                        $key = $record->id . '|' . $d;
+                        if (isset($this->attendIndex[$key])) {
+                            $total += count($this->attendIndex[$key]);
+                        }
+                    }
+                    return $total;
                 })
                 ->alignCenter();
         }
