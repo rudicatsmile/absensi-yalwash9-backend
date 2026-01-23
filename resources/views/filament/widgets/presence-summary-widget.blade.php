@@ -37,8 +37,8 @@
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                color: white;
-                font-weight: 600;
+                font-weight: 700;
+                font-size: 1.125rem;
             }
             .presence-card-body {
                 padding: 12px;
@@ -107,11 +107,11 @@
                     @endif
                     {{ $stat->getExtraAttributeBag() }}
                 >
-                    <div class="presence-card-header {{ $bgClass }}">
+                    <div class="presence-card-header {{ $bgClass }} text-white group-[.text-black-header]:text-black">
                         @if ($icon)
                             <x-filament::icon
                                 :icon="$icon"
-                                class="h-5 w-5 text-white"
+                                class="h-5 w-5 text-white group-[.text-black-header]:text-black"
                             />
                         @endif
                         <span class="truncate">{{ $label }}</span>

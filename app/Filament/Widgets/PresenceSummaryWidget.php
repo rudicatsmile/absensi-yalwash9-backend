@@ -100,17 +100,18 @@ class PresenceSummaryWidget extends BaseWidget implements HasActions, HasForms
         $percentageFormatted = number_format($percentage, 1) . '%';
 
         return [
-            Stat::make('Hadir', $present)
-                ->description('Jumlah hari hadir')
+            Stat::make('Total Hadir', $present)
+                ->description('Pegawai hadir')
                 ->descriptionIcon('heroicon-m-check-circle')
                 ->color('success')
                 ->extraAttributes([
-                    'class' => 'hover:scale-105 transition-transform duration-300 cursor-pointer',
+                    'class' => 'hover:scale-105 transition-transform duration-300 cursor-pointer text-black-header',
                     'wire:click' => "openPresentEmployees",
+                    'title' => 'Lihat Daftar Pegawai Hadir',
                 ]),
 
             Stat::make('Izin', $absentByPermit)
-                ->description('Jumlah hari berizin')
+                ->description('Pegawai Izin')
                 ->descriptionIcon('heroicon-m-information-circle')
                 ->color('info')
                 ->extraAttributes([
@@ -129,7 +130,7 @@ class PresenceSummaryWidget extends BaseWidget implements HasActions, HasForms
                 ]),
 
             Stat::make('Tidak Hadir', $absentUnexcused)
-                ->description('Jumlah hari tanpa keterangan')
+                ->description('Pegawai belum/tidak hadir')
                 ->descriptionIcon('heroicon-m-x-circle')
                 ->color('danger')
                 ->extraAttributes([
