@@ -172,7 +172,7 @@ class PermitsTable
                                 'total_days' => $totalDays,
                             ]);
 
-                            //Do todo if permit type is 4 (Dinas)
+                            //Do todo if permit type is 4 (Izin Dinas dianggap masuk kerja)
                             if ($record->permit_type_id === 4) {
                                 // Get default location (Gedung A)
                                 $companyLocation = \App\Models\CompanyLocation::find(1);
@@ -190,6 +190,7 @@ class PermitsTable
                                     'latlon_in' => $defaultLatLon,
                                     'latlon_out' => $defaultLatLon,
                                     'status' => 'on_time',
+                                    'is_work_permit' => true,
                                     'created_at' => now(),
                                     'updated_at' => now(),
                                 ];

@@ -52,7 +52,7 @@ class AttendancesTable
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->formatStateUsing(fn(string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state, $record): string => $record->is_overtime ? 'Over Shift' : match ($state) {
                         'on_time' => 'On Time',
                         'late' => 'Late',
                         'absent' => 'Absent',

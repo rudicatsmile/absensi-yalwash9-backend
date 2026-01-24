@@ -179,27 +179,68 @@ class OvertimesTable
                     ->visible(fn(Overtime $record) => $record->status === 'pending' && in_array(auth()->user()->role, ['admin', 'kepala_lembaga'], true))
                     ->requiresConfirmation()
                     ->action(function (Overtime $record) {
-                        $record->update([
-                            'status' => 'approved',
-                            'approved_by' => auth()->id(),
-                            'approved_at' => now(),
-                        ]);
+                        try {
+                            \Illuminate\Support\Facades\DB::beginTransaction();
 
-                        $employee = $record->user;
-                        if ($employee && $employee->id) {
-                            $title = 'Pengajuan Overtime Disetujui';
-                            $body = 'Pengajuan Overtime Anda pada tanggal ' . $record->date->format('d/m/Y') . ' telah disetujui.';
-                            $data = [
-                                'type' => 'overtime_status_update',
-                                'overtime_id' => (string) $record->id,
-                            ];
-                            app(FcmService::class)->sendToUser($employee->id, $title, $body, $data);
+                            $record->update([
+                                'status' => 'approved',
+                                'approved_by' => auth()->id(),
+                                'approved_at' => now(),
+                            ]);
+
+                            // Insert into Attendance
+                            $attendanceExists = \App\Models\Attendance::where('user_id', $record->user_id)
+                                ->where('date', $record->date)
+                                ->exists();
+
+                            if (!$attendanceExists) {
+                                $companyLocation = \App\Models\CompanyLocation::find(1);
+                                $defaultLatLon = $companyLocation ? "{$companyLocation->latitude},{$companyLocation->longitude}" : '-6.1914783,106.9372911';
+
+                                $attendanceData = [
+                                    'user_id' => $record->user_id,
+                                    // Ambil shift_id dari tabel pivot shift_kerja_user, kecuali shift 5
+                                    'shift_id' => $record->user->shiftKerjas()->where('shift_kerjas.id', '!=', 5)->first()?->id,
+                                    'company_location_id' => 1,    //Default Gedung A
+                                    'departemen_id' => $record->user->departemen_id,
+                                    'date' => $record->date,
+                                    'time_in' => $record->start_time ? $record->start_time->format('H:i:s') : null,
+                                    'time_out' => $record->end_time ? $record->end_time->format('H:i:s') : null,
+                                    'latlon_in' => $defaultLatLon,
+                                    'latlon_out' => $defaultLatLon,
+                                    'status' => 'on_time',
+                                    'is_overtime' => true,
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                ];
+                                \App\Models\Attendance::create($attendanceData);
+                            }
+
+                            \Illuminate\Support\Facades\DB::commit();
+
+                            $employee = $record->user;
+                            if ($employee && $employee->id) {
+                                $title = 'Pengajuan Overtime Disetujui';
+                                $body = 'Pengajuan Overtime Anda pada tanggal ' . $record->date->format('d/m/Y') . ' telah disetujui.';
+                                $data = [
+                                    'type' => 'overtime_status_update',
+                                    'overtime_id' => (string) $record->id,
+                                ];
+                                app(FcmService::class)->sendToUser($employee->id, $title, $body, $data);
+                            }
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Pengajuan Overtime berhasil disetujui')
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\DB::rollBack();
+                            \Filament\Notifications\Notification::make()
+                                ->title('Gagal menyetujui pengajuan overtime')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
                         }
-
-                        \Filament\Notifications\Notification::make()
-                            ->title('Pengajuan Overtime berhasil disetujui')
-                            ->success()
-                            ->send();
                     }),
 
                 Action::make('reject')

@@ -23,6 +23,8 @@ class Attendance extends Model
         'is_weekend',
         'is_holiday',
         'holiday_work',
+        'is_overtime',
+        'is_work_permit',
         'late_minutes',
         'early_leave_minutes',
     ];

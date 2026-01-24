@@ -80,6 +80,7 @@ Route::post('/api-user/edit', [App\Http\Controllers\Api\UserController::class, '
 // overtime
 Route::post('/start-overtime', [App\Http\Controllers\Api\OvertimeController::class, 'startOvertime'])->middleware('auth:sanctum');
 Route::post('/end-overtime', [App\Http\Controllers\Api\OvertimeController::class, 'endOvertime'])->middleware('auth:sanctum');
+Route::post('/overtime/approve', [App\Http\Controllers\Api\OvertimeController::class, 'approve'])->middleware('auth:sanctum');
 Route::get('/overtime-status', [App\Http\Controllers\Api\OvertimeController::class, 'checkTodayOvertimeStatus'])->middleware('auth:sanctum');
 Route::get('/overtimes', [App\Http\Controllers\Api\OvertimeController::class, 'index'])->middleware('auth:sanctum');
 
