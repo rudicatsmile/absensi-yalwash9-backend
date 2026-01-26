@@ -45,6 +45,7 @@ class PresenceSummaryWidget extends BaseWidget implements HasActions, HasForms
         $absentByPermit = (int) ($totals['absent_by_permit'] ?? 0);
         $absentUnexcused = (int) ($totals['absent_unexcused'] ?? 0);
 
+        //$absentByPermit     :   totalCutiRecords
         // Hitung Data Cuti
         $cutiQuery = Leave::query()
             ->where('status', 'approved')
@@ -64,6 +65,8 @@ class PresenceSummaryWidget extends BaseWidget implements HasActions, HasForms
         }
 
         $totalCutiRecords = $cutiQuery->count();
+        //$absentUnexcused = $absentUnexcused - $absentByPermit - $totalCutiRecords;
+        $absentUnexcused = $absentUnexcused - $totalCutiRecords;
         $leaves = $cutiQuery->get();
 
         $totalCutiDays = 0;

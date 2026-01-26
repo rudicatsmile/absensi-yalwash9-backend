@@ -97,9 +97,7 @@ class DashboardStatsWidget extends BaseWidget
         // Logika sederhana: Total Pegawai - Total Hadir
         // Catatan: Ini asumsi sederhana, bisa jadi tidak akurat jika ada yang libur/off tapi dihitung 'tidak hadir'
         // Tapi mengikuti logika kode sebelumnya: $totalPegawaiCount - $totalHadir
-        $totalTidakHadir = $totalPegawaiCount - $totalHadir;
         // Pastikan tidak negatif
-        $totalTidakHadir = max(0, $totalTidakHadir);
 
         // 4. Total Izin
         $izinQuery = \App\Models\Permit::whereDate('start_date', '<=', $selectedDate)
@@ -115,6 +113,11 @@ class DashboardStatsWidget extends BaseWidget
             ->where('status', 'approved');
         $applyFilters($cutiQuery);
         $totalCuti = $cutiQuery->count();
+
+
+        $totalTidakHadir = $totalPegawaiCount - $totalHadir - $totalIzin - $totalCuti;
+        // Pastikan tidak negatif
+        $totalTidakHadir = max(0, $totalTidakHadir);
 
         $stats = [
             Stat::make('Total Pegawai', $totalPegawaiCount)
