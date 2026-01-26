@@ -14,6 +14,10 @@ class DepartemenForm
             ->components([
                 TextInput::make('name')
                     ->required(),
+                TextInput::make('urut')
+                    ->numeric()
+                    ->default(0)
+                    ->required(),
                 Textarea::make('description')
                     ->default(null)
                     ->columnSpanFull(),

@@ -80,7 +80,7 @@ class AttendanceReport extends Page
             Select::make('departemen_id')
                 ->label('Departemen')
                 ->options(function () {
-                    $base = Departemen::query()->orderBy('name');
+                    $base = Departemen::query()->orderBy('urut');
                     if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
                         $base->whereKey(auth()->user()->departemen_id);
                     }

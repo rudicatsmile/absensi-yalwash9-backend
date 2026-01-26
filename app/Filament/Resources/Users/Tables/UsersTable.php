@@ -146,7 +146,7 @@ class UsersTable
                 SelectFilter::make('departemen_id')
                     ->label('Departemen')
                     ->options(function () {
-                        $base = \App\Models\Departemen::query()->orderBy('name');
+                        $base = \App\Models\Departemen::query()->orderBy('urut');
                         if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
                             $base->whereKey(auth()->user()->departemen_id);
                         }

@@ -261,7 +261,7 @@ class AttendancesTable
                             ->label('Lembaga')
                             ->options(
                                 \App\Models\Departemen::query()
-                                    // ->orderBy('urut')
+                                    ->orderBy('urut')
                                     ->pluck('name', 'id')
                             )
                             ->searchable()

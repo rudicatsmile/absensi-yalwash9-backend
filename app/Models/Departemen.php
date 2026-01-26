@@ -12,6 +12,7 @@ class Departemen extends Model
     protected $fillable = [
         'name',
         'description',
+        'urut',
     ];
 
     public function users()

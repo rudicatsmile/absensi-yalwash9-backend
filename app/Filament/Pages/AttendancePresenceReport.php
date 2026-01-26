@@ -71,7 +71,7 @@ class AttendancePresenceReport extends Page
                     DatePicker::make('start_date')->label('Tanggal Mulai')->native(false)->displayFormat('d-m-Y')->default($this->start_date),
                     DatePicker::make('end_date')->label('Tanggal Akhir')->native(false)->displayFormat('d-m-Y')->default($this->end_date),
                     Select::make('departemen_id')->label('Departemen')->options(function () {
-                        $base = Departemen::query()->orderBy('id');
+                        $base = Departemen::query()->orderBy('urut');
                         if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
                             $base->whereKey(auth()->user()->departemen_id);
                         }

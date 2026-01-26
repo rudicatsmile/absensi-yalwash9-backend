@@ -16,6 +16,8 @@ class DepartemensTable
             ->columns([
                 TextColumn::make('name')
                     ->searchable(),
+                TextColumn::make('urut')
+                    ->sortable(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

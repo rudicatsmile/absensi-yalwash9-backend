@@ -74,7 +74,7 @@ class ManualAttendanceResource extends Resource
                     }),
                 SelectFilter::make('departemen_id')
                     ->label('Departemen')
-                    ->options(\App\Models\Departemen::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                    ->options(\App\Models\Departemen::query()->orderBy('urut')->pluck('name', 'id')->toArray())
                     ->searchable()
                     ->preload()
                     ->query(function (Builder $query, array $data): Builder {
