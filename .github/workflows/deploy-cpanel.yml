@@ -1,0 +1,55 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  web-deploy:
+    name: 🎉 Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+
+      # --- OPSI 1: Jika Hosting TIDAK punya akses SSH ---
+      # Anda perlu menginstall dependencies dan build assets di sini sebelum upload.
+      # Hapus tanda komentar (#) pada langkah di bawah ini jika diperlukan:
+      
+      # - name: Setup PHP
+      #   uses: shivammathur/setup-php@v2
+      #   with:
+      #     php-version: '8.2'
+      
+      # - name: Install Composer Dependencies
+      #   run: composer install --no-dev --optimize-autoloader --prefer-dist
+      
+      # - name: Setup Node.js
+      #   uses: actions/setup-node@v3
+      #   with:
+      #     node-version: '18'
+          
+      # - name: Build Assets
+      #   run: |
+      #     npm install
+      #     npm run build
+
+      # --------------------------------------------------
+
+      - name: 📂 Sync files via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          # Path di hosting (misal: /public_html/ atau /public_html/api/)
+          server-dir: /public_html/ 
+          # Exclude file yang tidak perlu diupload
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            tests/**
+            # Hapus baris vendor di bawah ini JIKA Anda menjalankan 'composer install' di langkah sebelumnya
+            **/vendor/**
