@@ -686,6 +686,25 @@ class ReportController extends Controller
             }
         }
 
+        // Tambahkan logika untuk mengecualikan Cuti (Leaves)
+        $leaves = DB::table('leaves')
+            ->select(['employee_id', 'start_date', 'end_date', 'status'])
+            ->where('status', 'approved')
+            ->whereDate('end_date', '>=', $start)
+            ->whereDate('start_date', '<=', $end)
+            ->get();
+
+        foreach ($leaves as $l) {
+            $ls = $l->start_date;
+            $le = $l->end_date;
+            $cur3 = $ls < $start ? $start : $ls;
+            $end3 = $le > $end ? $end : $le;
+            while ($cur3 <= $end3) {
+                $permitIndex[$l->employee_id . '|' . $cur3] = true;
+                $cur3 = date('Y-m-d', strtotime($cur3 . ' +1 day'));
+            }
+        }
+
         $rows = [];
         foreach ($users as $u) {
             $alpa = 0;
