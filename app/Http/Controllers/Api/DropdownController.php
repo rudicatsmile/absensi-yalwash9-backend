@@ -52,13 +52,23 @@ class DropdownController extends Controller
                 ->get();
 
         } else {
-            $items = DB::table('shift_kerjas')
+            $query = DB::table('shift_kerjas')
                 ->join('shift_kerja_user', 'shift_kerja_user.shift_kerja_id', '=', 'shift_kerjas.id')
                 ->where('shift_kerja_user.user_id', (int) $userId)
-                ->where('shift_kerjas.id', '<>', 5)
                 ->select('shift_kerjas.*')
-                ->distinct()
-                ->get();
+                ->distinct();
+
+            // Logika baru: Jika waktu saat ini (WIB) sebelum 11:30, kecualikan shift ID 2 dan 5.
+            // Jika tidak, gunakan logika lama (kecualikan shift ID 5).
+            $wibTime = \Carbon\Carbon::now('Asia/Jakarta')->format('H:i');
+
+            if ($wibTime < '11:30') {
+                $query->whereNotIn('shift_kerjas.id', [2, 5]);
+            } else {
+                $query->where('shift_kerjas.id', '<>', 5);
+            }
+
+            $items = $query->get();
 
         }
 
