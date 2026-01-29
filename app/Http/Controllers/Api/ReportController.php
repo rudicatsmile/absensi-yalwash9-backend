@@ -288,27 +288,66 @@ class ReportController extends Controller
                     $col++;
                 }
 
+                if ($result['mode'] === 'jumlah shift') {
+                    $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col) . '1', 'Total');
+                }
+
                 $rowIndex = 2;
+                $columnTotals = array_fill_keys($result['dates'], 0);
+                $grandTotalSum = 0;
+
                 foreach ($result['rows'] as $r) {
                     $sheet->setCellValue('A' . $rowIndex, $r['No']);
                     $sheet->setCellValue('B' . $rowIndex, $r['Nama']);
                     $col = 3;
+                    $rowTotal = 0;
+
                     foreach ($result['dates'] as $d) {
                         $cell = $r[$d] ?? ['count' => 0, 'present' => false, 'permit_type_id' => null];
                         $val = $result['mode'] === 'check'
                             ? ($cell['present'] ? '✔' : ($cell['permit_type_id'] ? 'ℹ' : '✖'))
                             : ($cell['count'] ?? 0);
                         $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col) . $rowIndex, $val);
+
+                        if ($result['mode'] === 'jumlah shift') {
+                            $count = $cell['count'] ?? 0;
+                            $rowTotal += $count;
+                            $columnTotals[$d] += $count;
+                        }
+
                         $col++;
+                    }
+
+                    if ($result['mode'] === 'jumlah shift') {
+                        $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col) . $rowIndex, $rowTotal);
+                        $grandTotalSum += $rowTotal;
                     }
                     $rowIndex++;
                 }
 
-                foreach (range('A', \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($result['dates']) + 2)) as $colLetter) {
+                if ($result['mode'] === 'jumlah shift') {
+                    $sheet->setCellValue('A' . $rowIndex, 'Grand Total');
+                    $sheet->mergeCells('A' . $rowIndex . ':B' . $rowIndex);
+                    $sheet->getStyle('A' . $rowIndex)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
+                    $sheet->getStyle('A' . $rowIndex)->getFont()->setBold(true);
+
+                    $col = 3;
+                    foreach ($result['dates'] as $d) {
+                        $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col) . $rowIndex, $columnTotals[$d]);
+                        $sheet->getStyle(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col) . $rowIndex)->getFont()->setBold(true);
+                        $col++;
+                    }
+                    $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col) . $rowIndex, $grandTotalSum);
+                    $sheet->getStyle(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col) . $rowIndex)->getFont()->setBold(true);
+                }
+
+                $totalCols = count($result['dates']) + 2 + ($result['mode'] === 'jumlah shift' ? 1 : 0);
+                foreach (range(1, $totalCols) as $colIndex) {
+                    $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
                     $sheet->getColumnDimension($colLetter)->setAutoSize(true);
                 }
                 $sheet->freezePane('C2');
-                $sheet->getStyle('A1:' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($result['dates']) + 2) . '1')->getFont()->setBold(true);
+                $sheet->getStyle('A1:' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($totalCols) . '1')->getFont()->setBold(true);
 
                 $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
                 $filename = 'laporan-kehadiran-' . now()->format('Y-m-d-H-i-s') . '.xlsx';

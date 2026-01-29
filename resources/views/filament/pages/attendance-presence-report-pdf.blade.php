@@ -23,6 +23,8 @@
         $dates = $matrix['dates'] ?? [];
         $rows = $matrix['rows'] ?? [];
         $mode = $matrix['mode'] ?? 'check';
+        $columnTotals = array_fill_keys($dates, 0);
+        $grandTotalSum = 0;
     @endphp
     <header>
         <div class="title">Laporan Kehadiran & Tidak Hadir</div>
@@ -36,6 +38,9 @@
                 @foreach($dates as $d)
                     <th>{{ \Carbon\Carbon::parse($d)->format('d-m-Y') }}</th>
                 @endforeach
+                @if($mode === 'jumlah shift')
+                    <th>Total</th>
+                @endif
             </tr>
         </thead>
         <tbody>
@@ -43,8 +48,16 @@
                 <tr>
                     <td class="text-left">{{ $row['No'] }}</td>
                     <td class="text-left">{{ $row['Nama'] }}</td>
+                    @php $rowTotal = 0; @endphp
                     @foreach($dates as $d)
-                        @php $cell = $row[$d] ?? ['count' => 0, 'present' => false, 'permit_type_id' => null]; @endphp
+                        @php 
+                            $cell = $row[$d] ?? ['count' => 0, 'present' => false, 'permit_type_id' => null]; 
+                            if ($mode === 'jumlah shift') {
+                                $count = $cell['count'] ?? 0;
+                                $rowTotal += $count;
+                                $columnTotals[$d] += $count;
+                            }
+                        @endphp
                         <td>
                             @if($mode === 'check')
                                 {{ $cell['present'] ? '✔' : ($cell['permit_type_id'] ? 'ℹ' : '✖') }}
@@ -53,8 +66,21 @@
                             @endif
                         </td>
                     @endforeach
+                    @if($mode === 'jumlah shift')
+                        @php $grandTotalSum += $rowTotal; @endphp
+                        <td style="font-weight:bold">{{ $rowTotal }}</td>
+                    @endif
                 </tr>
             @endforeach
+            @if($mode === 'jumlah shift')
+                <tr style="background:#f1f5f9; font-weight:bold">
+                    <td colspan="2" style="text-align:right">Grand Total</td>
+                    @foreach($dates as $d)
+                        <td>{{ $columnTotals[$d] }}</td>
+                    @endforeach
+                    <td>{{ $grandTotalSum }}</td>
+                </tr>
+            @endif
         </tbody>
     </table>
     <footer>
