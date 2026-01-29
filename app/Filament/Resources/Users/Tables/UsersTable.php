@@ -17,7 +17,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Placeholder;
 use Illuminate\Support\HtmlString;
 use Filament\Notifications\Notification;
-use Filament\Forms\Get;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;

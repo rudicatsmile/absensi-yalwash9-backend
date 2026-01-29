@@ -75,7 +75,10 @@ class DashboardStatsWidget extends BaseWidget
                 } else {
                     $relationName = method_exists($query->getModel(), 'employee') ? 'employee' : 'user';
                     $query->whereHas($relationName, function ($q) use ($selectedShift) {
-                        $q->where('shift_id', $selectedShift);
+                        // User sekarang punya banyak shift (Many-to-Many)
+                        $q->whereHas('shiftKerjas', function ($q2) use ($selectedShift) {
+                            $q2->where('shift_kerjas.id', $selectedShift);
+                        });
                     });
                 }
             }
