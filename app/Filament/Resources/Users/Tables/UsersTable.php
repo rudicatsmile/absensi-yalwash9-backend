@@ -17,9 +17,11 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Placeholder;
 use Illuminate\Support\HtmlString;
 use Filament\Notifications\Notification;
-use Filament\Schemas\Components\Utilities\Get;
+use Filament\Forms\Get;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -33,6 +35,7 @@ class UsersTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->extraAttributes(['class' => 'hide-filter-header'])
             ->columns([
                 TextColumn::make('row_number')
                     ->label('No')
@@ -136,6 +139,7 @@ class UsersTable
             ])
             ->filters([
                 SelectFilter::make('role')
+                    ->label('Role')
                     ->options([
                         'admin' => 'Admin',
                         'kepala_lembaga' => 'Pimpinan Yayasan',
@@ -162,6 +166,9 @@ class UsersTable
                         }
                     }),
             ])
+            ->filtersLayout(FiltersLayout::AboveContent)
+            ->filtersFormColumns(2)
+            ->deferFilters(false)
             ->headerActions([
                 Action::make('export_excel')
                     ->label('Export Excel')

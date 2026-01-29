@@ -87,6 +87,8 @@ class AdminPanelProvider extends PanelProvider
                         #location-consent-overlay .btn-secondary{background:#fff;color:#111827;border-color:#e5e7eb}
                         #location-consent-overlay .remember{display:flex;align-items:center;gap:.5rem;color:#6b7280;margin-right:auto}
                         html.location-overlay-active{overflow:hidden}
+                        /* Hide default filter header for tables with this class */
+                        .hide-filter-header .fi-ta-filters-header { display: none !important; }
                     </style>
                 '
             )
