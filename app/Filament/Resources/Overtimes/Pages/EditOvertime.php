@@ -59,17 +59,19 @@ class EditOvertime extends EditRecord
         // Kirim notifikasi Firebase jika status berubah
         if ($originalStatus !== $newStatus && in_array($newStatus, ['approved', 'rejected'])) {
             // $this->sendFirebaseNotification($newStatus);
-            $user = User::find($this->record->user_id);
-            $token = $user->fcm_token;
+            if (config('firebase.enabled')) {
+                $user = User::find($this->record->user_id);
+                $token = $user->fcm_token;
 
-            // Kirim notifikasi ke perangkat Android
-            $messaging = app('firebase.messaging');
-            $notification = Notification::create('Status Izin', "Lembur untuk {$this->record->user->name} telah {$statusText}.");
+                // Kirim notifikasi ke perangkat Android
+                $messaging = app('firebase.messaging');
+                $notification = Notification::create('Status Izin', "Lembur untuk {$this->record->user->name} telah {$statusText}.");
 
-            $message = CloudMessage::withTarget('token', $token)
-                ->withNotification($notification);
+                $message = CloudMessage::withTarget('token', $token)
+                    ->withNotification($notification);
 
-            $messaging->send($message);
+                $messaging->send($message);
+            }
         }
 
         // Tampilkan notifikasi di dashboard

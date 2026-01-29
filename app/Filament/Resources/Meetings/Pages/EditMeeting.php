@@ -42,7 +42,7 @@ class EditMeeting extends EditRecord
                 ->send();
 
             // Send Firebase notification if user has FCM token
-            if ($user && $user->fcm_token) {
+            if (config('firebase.enabled') && $user && $user->fcm_token) {
                 try {
                     $messaging = app('firebase.messaging');
                     

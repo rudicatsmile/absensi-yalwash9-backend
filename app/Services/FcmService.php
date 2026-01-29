@@ -29,6 +29,11 @@ class FcmService
         array $data = [],
         int $retry = 1
     ): bool {
+        if (!config('firebase.enabled')) {
+            Log::info('FCM: Notifikasi dimatikan via config (FCM_ENABLED=false)');
+            return true;
+        }
+
         $tokens = array_values(array_filter(array_unique($tokens)));
 
         if (empty($tokens)) {
@@ -182,6 +187,11 @@ class FcmService
     // Contoh: Kirim hanya ke Departemen tertentu (misal: HRD)
     public function sendToDepartment($departmentCode, $title, $body, $data = [])
     {
+        if (!config('firebase.enabled')) {
+            Log::info('FCM: Notifikasi Departemen dimatikan via config');
+            return;
+        }
+
         $topic = "dept_" . strtolower($departmentCode); // dept_hrd
 
         $message = CloudMessage::withTarget('topic', $topic)
