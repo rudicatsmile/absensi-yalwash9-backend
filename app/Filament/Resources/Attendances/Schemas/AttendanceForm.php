@@ -33,6 +33,27 @@ class AttendanceForm
                 TimePicker::make('time_out')
                     ->label('Check Out Time')
                     ->seconds(false),
+                Select::make('shift_id')
+                    ->label('Shift Kerja')
+                    ->relationship('shift', 'name', fn($query) => $query->where('is_active', true))
+                    ->required()
+                    ->searchable()
+                    ->preload(),
+                Select::make('company_location_id')
+                    ->label('Lokasi Absen')
+                    ->relationship('companyLocation', 'name')
+                    ->required()
+                    ->searchable()
+                    ->preload(),
+                Select::make('status')
+                    ->label('Status')
+                    ->options([
+                        'on_time' => 'On Time',
+                        'late' => 'Late',
+                        'absent' => 'Absent',
+                        'over_shift' => 'Over Shift',
+                    ])
+                    ->required(),
                 TextInput::make('latlon_in')
                     ->label('Check In Location (Lat, Lon)')
                     ->placeholder('e.g., -6.2088, 106.8456')
@@ -40,6 +61,10 @@ class AttendanceForm
                 TextInput::make('latlon_out')
                     ->label('Check Out Location (Lat, Lon)')
                     ->placeholder('e.g., -6.2088, 106.8456'),
+                \Filament\Forms\Components\Textarea::make('notes')
+                    ->label('Keterangan')
+                    ->rows(3)
+                    ->columnSpanFull(),
             ]);
     }
 }

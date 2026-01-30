@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Attendances\Tables;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -154,7 +155,7 @@ class AttendancesTable
                 \Filament\Tables\Filters\SelectFilter::make('departemen_id')
                     ->label('Departemen')
                     ->options(function () {
-                        $base = \App\Models\Departemen::query()->orderBy('name');
+                        $base = \App\Models\Departemen::query()->orderBy('urut');
                         if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
                             $base->whereKey(auth()->user()->departemen_id);
                         }
@@ -184,7 +185,7 @@ class AttendancesTable
                     ->label('Pegawai')
                     ->options(function (): array {
                         $departemenIds = self::getSelectedDepartemenIds();
-                        $query = \App\Models\User::query()->select('id', 'name', 'nip');
+                        $query = \App\Models\User::query()->select('id', 'name');
                         if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
                             $query->where('departemen_id', auth()->user()->departemen_id);
                         } else {
@@ -196,7 +197,7 @@ class AttendancesTable
                         return $query->orderBy('name')
                             ->get()
                             ->mapWithKeys(function ($user) {
-                                return [$user->id => $user->name . ' (' . $user->nip . ')'];
+                                return [$user->id => $user->name];
                             })
                             ->toArray();
                     })
@@ -277,7 +278,7 @@ class AttendancesTable
                                 $departemenId = $get('departemen_id');
 
                                 $query = \App\Models\User::query()
-                                    ->select('id', 'nip', 'name');
+                                    ->select('id', 'name');
 
                                 if (is_array($departemenId) && count($departemenId)) {
                                     $ids = array_map(static fn($v) => (int) $v, $departemenId);
@@ -287,10 +288,7 @@ class AttendancesTable
                                 }
 
                                 return $query->orderBy('name')
-                                    ->get()
-                                    ->mapWithKeys(function ($user) {
-                                        return [$user->id => $user->name];
-                                    })
+                                    ->pluck('name', 'id')
                                     ->toArray();
                             })
                             ->searchable()
@@ -331,6 +329,8 @@ class AttendancesTable
             ])
             ->recordActions([
                 ViewAction::make(),
+                EditAction::make()
+                    ->successNotificationTitle('Data absensi berhasil diperbarui'),
             ])
             ->toolbarActions([
                 Action::make('export_csv')

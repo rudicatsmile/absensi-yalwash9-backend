@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\UserPushTokenController;
 use App\Http\Controllers\Api\ReligiousStudyEventController;
 
+use App\Http\Controllers\Api\ShiftKerjaController;
+
 Route::get('/user', function (Request $request) {
     $user = $request->user();
 
@@ -98,6 +100,11 @@ Route::get('/permit-types', [App\Http\Controllers\Api\PermitController::class, '
 Route::get('/permit-balance', [App\Http\Controllers\Api\LeaveController::class, 'getBalance'])->middleware('auth:sanctum');
 
 Route::get('/permits', [App\Http\Controllers\Api\PermitController::class, 'index'])->middleware('auth:sanctum');
+
+// jam kerja (shift)
+Route::get('/shift-kerjas', [ShiftKerjaController::class, 'index'])->middleware('auth:sanctum');
+Route::get('/shift-kerjas/{id}', [ShiftKerjaController::class, 'show'])->middleware('auth:sanctum');
+
 Route::get('/permits/{id}', [App\Http\Controllers\Api\PermitController::class, 'show'])->middleware('auth:sanctum');
 Route::post('/permits', [App\Http\Controllers\Api\PermitController::class, 'store'])->middleware('auth:sanctum');
 Route::put('/permits/{id}', [App\Http\Controllers\Api\PermitController::class, 'update'])->middleware('auth:sanctum');
@@ -130,3 +137,6 @@ Route::get('/religious-study-events/overlay', [ReligiousStudyEventController::cl
 
 Route::apiResource('contacts', App\Http\Controllers\Api\ContactController::class)->middleware('auth:sanctum');
 // Route::apiResource('contacts', App\Http\Controllers\Api\ContactController::class)->middleware(['auth:sanctum', App\Http\Middleware\EmployeeAccessMiddleware::class]);
+
+// Jam Kerja (Master Data)
+Route::apiResource('jam-kerjas', App\Http\Controllers\Api\JamKerjaController::class)->middleware('auth:sanctum');

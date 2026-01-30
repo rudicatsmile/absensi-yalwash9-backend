@@ -4,20 +4,21 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
     public function up(): void
     {
-        Schema::create('religious_study_events', function (Blueprint $table) {
-            $table->id();
-            $table->string('title');
-            $table->string('image_path')->nullable();
-            $table->boolean('isoverlay')->default(false);
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('religious_study_events')) {
+            Schema::create('religious_study_events', function (Blueprint $table) {
+                $table->id();
+                $table->string('title');
+                $table->string('image_path')->nullable();
+                $table->boolean('isoverlay')->default(false);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

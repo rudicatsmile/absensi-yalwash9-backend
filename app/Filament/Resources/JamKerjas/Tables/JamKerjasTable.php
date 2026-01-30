@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\ShiftKerjas\Tables;
+namespace App\Filament\Resources\JamKerjas\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -14,7 +14,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Carbon\Carbon;
 
-class ShiftKerjasTable
+class JamKerjasTable
 {
     public static function configure(Table $table): Table
     {
@@ -46,18 +46,20 @@ class ShiftKerjasTable
                         try {
                             $start = Carbon::parse($record->start_time);
                             $end = Carbon::parse($record->end_time);
-                            
+
                             if ($record->is_cross_day) {
                                 $end->addDay();
                             }
-                            
+
                             $hours = $start->diffInHours($end);
                             $minutes = $start->diffInMinutes($end) % 60;
-                            
+
                             $duration = '';
-                            if ($hours > 0) $duration .= "{$hours} hr ";
-                            if ($minutes > 0) $duration .= "{$minutes} min";
-                            
+                            if ($hours > 0)
+                                $duration .= "{$hours} hr ";
+                            if ($minutes > 0)
+                                $duration .= "{$minutes} min";
+
                             return trim($duration) ?: '0 min';
                         } catch (\Exception $e) {
                             return '-';
@@ -90,12 +92,7 @@ class ShiftKerjasTable
                     ->offColor('danger')
                     ->alignCenter(),
 
-                TextColumn::make('users_count')
-                    ->label('Employees')
-                    ->counts('users')
-                    ->badge()
-                    ->color('primary')
-                    ->alignCenter(),
+                // Removed users_count as JamKerja doesn't have users relationship yet
 
                 TextColumn::make('description')
                     ->label('Description')

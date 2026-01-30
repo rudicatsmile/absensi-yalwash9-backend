@@ -27,6 +27,7 @@ class Attendance extends Model
         'is_work_permit',
         'late_minutes',
         'early_leave_minutes',
+        'notes',
     ];
 
     protected function casts(): array
