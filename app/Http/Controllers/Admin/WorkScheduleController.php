@@ -12,6 +12,38 @@ use Illuminate\Support\Facades\Log;
 
 class WorkScheduleController extends Controller
 {
+    public function getSchedule(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'user_id' => 'required|exists:users,id',
+                'day' => 'required|integer|min:1|max:31',
+                'month' => 'required|integer|min:1|max:12',
+                'year' => 'required|integer',
+            ]);
+
+            $date = Carbon::createFromDate($validated['year'], $validated['month'], $validated['day']);
+
+            $schedules = EmployeeWorkTimeSchedule::where('employee_id', $validated['user_id'])
+                ->whereDate('schedule_date', $date)
+                ->pluck('jam_kerja_id')
+                ->filter()
+                ->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => $schedules,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching work schedule: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data jadwal: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function store(Request $request)
     {
         try {

@@ -1,6 +1,7 @@
 <div
     x-data="{
         isLoading: false,
+        isLoadingSchedule: false,
         isSaving: false,
         items: [],
         selected: [],
@@ -9,6 +10,7 @@
         currentYear: null,
         currentUserId: null,
         error: null,
+        fetchScheduleError: null,
         saveSuccess: null,
         saveError: null,
         rawSelections: $wire.entangle('mountedTableActionData.jam_kerja_custom_selections'),
@@ -40,10 +42,10 @@
             this.currentUserId = userId;
             this.saveSuccess = null;
             this.saveError = null;
-            this.loadItems();
+            this.fetchScheduleError = null;
 
-            // Fallback to entangled data for initial state
-            this.selected = this.selections[this.currentDay] || [];
+            this.loadItems();
+            this.loadSchedule();
             
             // Show modal using ref
             if (this.$refs.jamKerjaDialog) {
@@ -51,6 +53,36 @@
             } else {
                 console.error('Dialog ref not found!');
             }
+        },
+
+        async loadSchedule() {
+             this.isLoadingSchedule = true;
+             this.fetchScheduleError = null;
+             this.selected = []; 
+
+             try {
+                const params = new URLSearchParams({
+                    user_id: this.currentUserId,
+                    day: this.currentDay,
+                    month: this.currentMonth,
+                    year: this.currentYear
+                });
+                const response = await fetch(`/admin/ajax/get-work-schedule?${params.toString()}`);
+                if (!response.ok) throw new Error('Gagal mengambil jadwal');
+                const result = await response.json();
+                if (result.success) {
+                    this.selected = result.data;
+                } else {
+                    throw new Error(result.message);
+                }
+             } catch (err) {
+                 this.fetchScheduleError = err.message;
+                 console.error('Error fetching schedule:', err);
+                 // Fallback to local entangled state if DB fetch fails
+                 this.selected = this.selections[this.currentDay] || [];
+             } finally {
+                 this.isLoadingSchedule = false;
+             }
         },
 
         close() {
@@ -190,8 +222,20 @@
                         </style>
                     </div>
 
+                    <!-- Checking Schedule Loading -->
+                    <div x-show="!isLoading && isLoadingSchedule" style="padding: 16px; text-align: center; background-color: #fffbeb; color: #d97706; font-size: 0.875rem;">
+                        <svg class="animate-spin" style="display:inline-block; width:16px; height:16px; margin-right:8px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Memeriksa jadwal tersimpan...
+                    </div>
+
                     <!-- Error -->
                     <div x-show="error" style="text-align: center; color: #dc2626; padding: 16px;" x-text="error"></div>
+                    <div x-show="fetchScheduleError" style="text-align: center; color: #dc2626; padding: 12px; background-color: #fef2f2; font-size: 0.875rem; border-bottom: 1px solid #fee2e2;">
+                        Gagal mengambil jadwal tersimpan: <span x-text="fetchScheduleError"></span>
+                    </div>
 
                     <!-- Table -->
                     <div x-show="!isLoading && !error" style="overflow-x: auto;">

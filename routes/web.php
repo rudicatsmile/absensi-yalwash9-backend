@@ -25,4 +25,7 @@ Route::middleware(['auth', 'web'])->group(function () {
 
     Route::post('/admin/ajax/save-work-schedule', [\App\Http\Controllers\Admin\WorkScheduleController::class, 'store'])
         ->name('admin.ajax.save-work-schedule');
+
+    Route::get('/admin/ajax/get-work-schedule', [\App\Http\Controllers\Admin\WorkScheduleController::class, 'getSchedule'])
+        ->name('admin.ajax.get-work-schedule');
 });
