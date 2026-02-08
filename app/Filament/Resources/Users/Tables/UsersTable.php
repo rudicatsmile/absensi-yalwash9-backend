@@ -14,6 +14,7 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
 use Filament\Forms\Components\Placeholder;
 use Illuminate\Support\HtmlString;
 use Filament\Notifications\Notification;
@@ -277,6 +278,7 @@ class UsersTable
                                 }),
                             CheckboxList::make('allowed_days')
                                 ->label('Hari Diizinkan')
+                                ->allowHtml()
                                 ->hintActions([
                                     Action::make('check_all')
                                         ->label('Check All')
@@ -315,10 +317,18 @@ class UsersTable
                                             $set('allowed_days', $newAllowed);
                                         }),
                                 ])
-                                ->columns(7)
+                                ->columns([
+                                    'default' => 2,
+                                    'md' => 3,
+                                    'xl' => 4,
+                                ])
                                 ->options(function (Get $get): array {
                                     $month = (int) ($get('month') ?? (int) now()->format('n'));
                                     $year = (int) ($get('year') ?? (int) now()->format('Y'));
+                                    $selected = $get('allowed_days') ?? [];
+                                    $selected = array_map('strval', is_array($selected) ? $selected : []);
+                                    $userId = (int) ($get('user_id_internal') ?? 0);
+
                                     $daysInMonth = \Carbon\Carbon::createFromDate($year, $month, 1)->daysInMonth;
                                     $options = [];
                                     for ($d = 1; $d <= $daysInMonth; $d++) {
@@ -329,11 +339,41 @@ class UsersTable
                                             $label = 'Minggu ' . $date->format('d');
                                             $label = '<span class="text-red-600 font-semibold">' . $label . '</span>';
                                         }
-                                        $options[(string) $d] = $label;
+
+                                        $isSelected = in_array((string) $d, $selected, true);
+                                        // Inline style untuk ikon: ukuran 16px, tidak shrink, vertical align middle
+                                        $iconDisplay = $isSelected ? 'display: block;' : 'display: none;';
+                                        $iconStyle = 'width: 16px; height: 16px; flex-shrink: 0; vertical-align: middle; ' . $iconDisplay;
+
+                                        // Hapus class Tailwind yang mungkin tidak ter-load, gunakan inline style sepenuhnya
+                                        // Gunakan global event dispatch untuk membuka dialog native
+                                        $icon = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="allowed-day-clock-icon cursor-pointer" style="' . $iconStyle . '" onclick="event.preventDefault(); event.stopPropagation(); console.log(\'Clock clicked for day ' . $d . '\'); window.dispatchEvent(new CustomEvent(\'open-jam-kerja-dialog\', { detail: { day: \'' . $d . '\', month: \'' . $month . '\', year: \'' . $year . '\', userId: \'' . $userId . '\' } }));"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+
+                                        // Inline style untuk wrapper: inline-flex, align center, gap 4px, nowrap
+                                        $wrapperStyle = 'display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; width: 100%;';
+
+                                        $options[(string) $d] = '<span style="' . $wrapperStyle . '">' . $label . $icon . '</span>';
                                     }
 
                                     return $options;
                                 })
+                                ->extraAttributes([
+                                    'class' => 'allowed-days-list',
+                                    'x-data' => '{
+                                        handleChange(e) {
+                                            if (e.target.matches("input[type=\'checkbox\']")) {
+                                                const label = e.target.closest("label");
+                                                if (label) {
+                                                    const icon = label.querySelector(".allowed-day-clock-icon");
+                                                    if (icon) {
+                                                        icon.style.display = e.target.checked ? "block" : "none";
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }',
+                                    'x-on:change' => 'handleChange($event)',
+                                ])
                                 ->default(function (Get $get): array {
                                     $month = (int) ($get('month') ?? (int) now()->format('n'));
                                     $year = (int) ($get('year') ?? (int) now()->format('Y'));
@@ -343,6 +383,21 @@ class UsersTable
                                 ->allowHtml()
                                 ->reactive()
                                 ->required(),
+                            \Filament\Forms\Components\Hidden::make('jam_kerja_custom_selections')
+                                ->default(function (Get $get) {
+                                    $month = (int) ($get('month') ?? (int) now()->format('n'));
+                                    $year = (int) ($get('year') ?? (int) now()->format('Y'));
+                                    $userId = (int) ($get('user_id_internal') ?? 0);
+                                    $shiftId = (int) ($get('shift_id') ?? 0);
+
+                                    if ($userId > 0 && $shiftId > 0) {
+                                        $schedule = self::getScheduleFromCacheForForm($userId, $month, $year, $shiftId);
+                                        if ($schedule) {
+                                            return json_encode($schedule->jam_kerja_ids ?? new \stdClass());
+                                        }
+                                    }
+                                    return '{}';
+                                }),
                         ])
                         ->action(function (array $data, $record) {
                             $userId = $record->id;
@@ -350,6 +405,11 @@ class UsersTable
                             $year = (int) ($data['year'] ?? (int) now()->format('Y'));
                             $selected = self::extractSelectedDayKeys((array) ($data['allowed_days'] ?? []));
                             $shiftId = isset($data['shift_id']) ? (int) $data['shift_id'] : null;
+
+                            $customSelections = json_decode($data['jam_kerja_custom_selections'] ?? '{}', true);
+                            if (!is_array($customSelections)) {
+                                $customSelections = [];
+                            }
 
                             $daysInMonth = \Carbon\Carbon::createFromDate($year, $month, 1)->daysInMonth;
 
@@ -365,7 +425,7 @@ class UsersTable
                             }
 
                             try {
-                                DB::transaction(function () use ($userId, $month, $year, $newMap, $shiftId) {
+                                DB::transaction(function () use ($userId, $month, $year, $newMap, $shiftId, $customSelections) {
                                     $schedule = EmployeeWorkSchedule::query()
                                         ->where('user_id', $userId)
                                         ->where('month', $month)
@@ -380,10 +440,12 @@ class UsersTable
                                             'month' => $month,
                                             'year' => $year,
                                             'allowed_days' => $newMap,
+                                            'jam_kerja_ids' => $customSelections,
                                         ]);
                                     } else {
                                         $schedule->allowed_days = $newMap;
-                                        if ($schedule->isDirty('allowed_days')) {
+                                        $schedule->jam_kerja_ids = $customSelections;
+                                        if ($schedule->isDirty(['allowed_days', 'jam_kerja_ids'])) {
                                             $schedule->save();
                                         }
                                     }
@@ -622,12 +684,14 @@ class UsersTable
                 }
 
                 $set('allowed_days', $selected);
+                $set('jam_kerja_custom_selections', json_encode($schedule->jam_kerja_ids ?? new \stdClass()));
 
                 return;
             }
         }
 
         $set('allowed_days', self::buildDefaultAllowedDaysSelection($year, $month));
+        $set('jam_kerja_custom_selections', '{}');
     }
 
     protected static function buildDefaultAllowedDaysSelection(int $year, int $month): array

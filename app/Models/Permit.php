@@ -46,4 +46,9 @@ class Permit extends Model
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
+
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(ShiftKerja::class, 'shift_id');
+    }
 }

@@ -164,4 +164,9 @@ class ListUsers extends ListRecords
             return 'Tidak ada filter';
         }
     }
+
+    public function getFooter(): ?\Illuminate\Contracts\View\View
+    {
+        return view('filament.resources.users.components.jam-kerja-modal');
+    }
 }

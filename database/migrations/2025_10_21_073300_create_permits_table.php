@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('permits', function (Blueprint $table) {
             $table->id();
             $table->integer('employee_id');
-            $table->integer('leave_type_id');
+            $table->integer('permit_type_id');
+            $table->unsignedBigInteger('shift_id')->nullable();
             $table->date('start_date');
             $table->date('end_date');
             $table->integer('total_days');

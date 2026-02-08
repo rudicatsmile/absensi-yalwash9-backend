@@ -33,6 +33,7 @@ class PermitsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn(Builder $query) => $query->with(['shift', 'employee', 'permitType', 'approver']))
             ->columns([
                 TextColumn::make('employee.name')
                     ->label('Pegawai')
@@ -42,17 +43,20 @@ class PermitsTable
                 TextColumn::make('permitType.name')
                     ->label('Tipe Izin')
                     ->sortable()
+                    ->limit(12)
                     ->searchable(),
 
-                TextColumn::make('start_date')
-                    ->label('Mulai')
-                    ->date('d/m/Y')
-                    ->sortable(),
+                TextColumn::make('shift.name')
+                    ->label('Shift Kerja')
+                    ->sortable()
+                    ->searchable()
+                    ->placeholder('-'),
 
-                TextColumn::make('end_date')
-                    ->label('Selesai')
-                    ->date('d/m/Y')
-                    ->sortable(),
+                TextColumn::make('date_range')
+                    ->label('Periode Izin')
+                    ->state(fn(Permit $record) => $record->start_date->format('d/m/Y') . '<br>' . $record->end_date->format('d/m/Y'))
+                    ->html()
+                    ->sortable(['start_date']),
 
                 TextColumn::make('total_days')
                     ->label('Total hari')
@@ -100,6 +104,11 @@ class PermitsTable
                     ->relationship('permitType', 'name')
                     ->searchable(),
 
+                SelectFilter::make('shift_id')
+                    ->label('Shift Kerja')
+                    ->relationship('shift', 'name')
+                    ->searchable(),
+
                 SelectFilter::make('status')
                     ->label('Status')
                     ->options([
@@ -135,7 +144,7 @@ class PermitsTable
 
                     EditAction::make()
                         ->label('Edit')
-                        ->visible(fn(Permit $record) => $record->status === 'pending' && !in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)),
+                        ->visible(fn(Permit $record) => in_array($record->status, ['pending', 'approved']) && !in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)),
 
                     Action::make('approve')
                         ->label('Setujui')

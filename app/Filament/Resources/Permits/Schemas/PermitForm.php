@@ -34,6 +34,12 @@ class PermitForm
                             ->relationship('permitType', 'name')
                             ->preload(),
 
+                        Select::make('shift_id')
+                            ->label('Shift Kerja')
+                            ->relationship('shift', 'name')
+                            ->searchable()
+                            ->preload(),
+
                         DatePicker::make('start_date')
                             ->label('Start Date')
                             ->required()

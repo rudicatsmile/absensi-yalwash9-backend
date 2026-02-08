@@ -15,12 +15,14 @@ class EmployeeWorkSchedule extends Model
         'month',
         'year',
         'allowed_days',
+        'jam_kerja_ids',
     ];
 
     protected function casts(): array
     {
         return [
             'allowed_days' => 'array',
+            'jam_kerja_ids' => 'array',
         ];
     }
 

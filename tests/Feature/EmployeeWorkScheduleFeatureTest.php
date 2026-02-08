@@ -32,28 +32,30 @@ class EmployeeWorkScheduleFeatureTest extends TestCase
 
         $this->actingAs($admin);
 
+        $shift = \App\Models\ShiftKerja::factory()->create(['name' => 'Pagi']);
+
         $month = 2;
         $year = 2024; // leap year
         $daysInMonth = \Carbon\Carbon::createFromDate($year, $month, 1)->daysInMonth;
-        $allDays = array_map(fn ($d) => (string) $d, range(1, $daysInMonth));
+        $allDays = array_map(fn($d) => (string) $d, range(1, $daysInMonth));
 
         Livewire::test(ListUsers::class)
             ->callTableAction('ubah_jadwal', $employee, [
                 'month' => $month,
                 'year' => $year,
-                'shift' => 'pagi',
+                'shift_id' => $shift->id,
                 'allowed_days' => $allDays,
             ])
             ->assertNotified();
 
         $this->assertDatabaseHas('employee_work_schedule', [
-            'employee_id' => $employee->id,
+            'user_id' => $employee->id,
             'month' => $month,
             'year' => $year,
         ]);
 
         $schedule = EmployeeWorkSchedule::query()
-            ->where('employee_id', $employee->id)
+            ->where('user_id', $employee->id)
             ->where('month', $month)
             ->where('year', $year)
             ->first();
