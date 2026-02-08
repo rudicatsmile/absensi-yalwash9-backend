@@ -13,7 +13,8 @@ class EmployeeWorkTimeSchedule extends Model
     protected $table = 'employee_work_time_schedule';
 
     protected $fillable = [
-        'employee_id',
+        'user_id',
+        'shift_id',
         'schedule_date',
         'start_time',
         'end_time',
@@ -26,9 +27,14 @@ class EmployeeWorkTimeSchedule extends Model
         'end_time' => 'datetime:H:i:s',
     ];
 
-    public function employee(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'employee_id');
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(ShiftKerja::class, 'shift_id');
     }
 
     public function jamKerja(): BelongsTo

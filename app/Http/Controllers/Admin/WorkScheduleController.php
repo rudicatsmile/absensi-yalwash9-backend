@@ -24,7 +24,7 @@ class WorkScheduleController extends Controller
 
             $date = Carbon::createFromDate($validated['year'], $validated['month'], $validated['day']);
 
-            $schedules = EmployeeWorkTimeSchedule::where('employee_id', $validated['user_id'])
+            $schedules = EmployeeWorkTimeSchedule::where('user_id', $validated['user_id'])
                 ->whereDate('schedule_date', $date)
                 ->pluck('jam_kerja_id')
                 ->filter()
@@ -60,7 +60,7 @@ class WorkScheduleController extends Controller
 
             DB::transaction(function () use ($validated, $date) {
                 // Delete existing records for this user and date
-                EmployeeWorkTimeSchedule::where('employee_id', $validated['user_id'])
+                EmployeeWorkTimeSchedule::where('user_id', $validated['user_id'])
                     ->whereDate('schedule_date', $date)
                     ->delete();
 
@@ -69,7 +69,7 @@ class WorkScheduleController extends Controller
 
                     foreach ($jamKerjas as $jam) {
                         EmployeeWorkTimeSchedule::create([
-                            'employee_id' => $validated['user_id'],
+                            'user_id' => $validated['user_id'],
                             'schedule_date' => $date,
                             'start_time' => $jam->start_time,
                             'end_time' => $jam->end_time,
