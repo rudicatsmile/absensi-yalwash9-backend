@@ -11,7 +11,7 @@ Route::middleware(['auth', 'web'])->group(function () {
     Route::get('/admin/ajax/jam-kerjas', function () {
         return \App\Models\JamKerja::where('is_active', true)
             ->select('id', 'name', 'start_time', 'end_time')
-            ->orderBy('name')
+            ->orderBy('id')
             ->get()
             ->map(function ($item) {
                 return [
