@@ -31,4 +31,7 @@ Route::middleware(['auth', 'web'])->group(function () {
 
     Route::get('/admin/ajax/check-work-schedule', [\App\Http\Controllers\Admin\WorkScheduleController::class, 'checkSchedule'])
         ->name('admin.ajax.check-work-schedule');
+
+    Route::get('/admin/users/{user_id}/work-schedule-pdf', [\App\Http\Controllers\Admin\WorkScheduleController::class, 'pdf'])
+        ->name('admin.users.work-schedule-pdf');
 });

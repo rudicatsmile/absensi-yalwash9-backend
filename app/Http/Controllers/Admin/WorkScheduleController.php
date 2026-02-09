@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\EmployeeWorkSchedule;
 use App\Models\EmployeeWorkTimeSchedule;
 use App\Models\JamKerja;
+use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +16,74 @@ use Illuminate\Validation\Rule;
 
 class WorkScheduleController extends Controller
 {
+
+
+    public function pdf(Request $request, $user_id)
+    {
+        try {
+            // 1. Authorization
+            if (!auth()->check()) {
+                abort(403, 'Unauthorized');
+            }
+            // Permission check can be added here if needed, or handled via middleware
+            // if (auth()->user()->cannot('download-work-schedule-pdf')) { abort(403); }
+
+            // 2. Validation
+            $request->validate([
+                'start_date' => 'required|date_format:Y-m-d',
+                'end_date' => 'required|date_format:Y-m-d|after_or_equal:start_date',
+            ]);
+
+            $startDate = Carbon::parse($request->start_date);
+            $endDate = Carbon::parse($request->end_date);
+
+            if ($startDate->diffInDays($endDate) > 31) {
+                return back()->with('error', 'Rentang maksimal 31 hari.');
+            }
+
+            // 4. Data Fetching
+            $user = User::with('departemen')->findOrFail($user_id);
+
+            $schedules = EmployeeWorkTimeSchedule::with('shift')
+                ->where('user_id', $user_id)
+                ->whereBetween('schedule_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+                ->orderBy('schedule_date', 'asc')
+                ->get();
+
+            // 5. Data Grouping
+            // Group by Shift -> then by Date
+            // Since schedule_date is unique per day, grouping by date results in a collection of 1 item usually.
+            // But the user requested "Setiap tanggal tersebut akan dibuat sebagai kelompok tabel terpisah".
+
+            $groupedData = $schedules->groupBy(function ($item) {
+                return $item->shift ? $item->shift->name : 'No Shift';
+            })->map(function ($shiftGroup) {
+                return $shiftGroup->groupBy(function ($item) {
+                    return Carbon::parse($item->schedule_date)->format('d-m-Y');
+                });
+            });
+
+            // 6. PDF Generation
+            $data = [
+                'groupedData' => $groupedData,
+                'employee_name' => $user->name,
+                'department_name' => $user->departemen->name ?? '-',
+                'start_date' => $startDate->format('d-m-Y'),
+                'end_date' => $endDate->format('d-m-Y'),
+                'report_title' => 'Laporan Jadwal Kerja',
+            ];
+
+            $pdf = Pdf::loadView('pdf.work-schedule-report', $data);
+            $pdf->setPaper('a4', 'portrait');
+
+            return $pdf->stream('jadwal-kerja-' . \Str::slug($user->name) . '-' . $startDate->format('Y-m-d') . '-to-' . $endDate->format('Y-m-d') . '.pdf');
+
+        } catch (\Exception $e) {
+            Log::error('Error generating PDF: ' . $e->getMessage());
+            return back()->with('error', 'Gagal membuat PDF: ' . $e->getMessage());
+        }
+    }
+
     public function checkSchedule(Request $request)
     {
         try {

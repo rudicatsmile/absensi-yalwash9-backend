@@ -178,7 +178,7 @@ class UserWorkScheduleReport extends Component
 
             $schedules = $query->orderBy('schedule_date')->get();
 
-            $pdf = Pdf::loadView('pdf.work-schedule-report', [
+            $pdf = Pdf::loadView('pdf.general-work-schedule-report', [
                 'schedules' => $schedules,
                 'startDate' => $this->startDate,
                 'endDate' => $this->endDate,

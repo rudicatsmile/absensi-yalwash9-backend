@@ -12,13 +12,14 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ViewField;
 use Filament\Forms\Components\Placeholder;
 use Illuminate\Support\HtmlString;
 use Filament\Notifications\Notification;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
@@ -30,6 +31,8 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
+use Closure;
 
 class UsersTable
 {
@@ -188,6 +191,40 @@ class UsersTable
             ])
             ->recordActions([
                 ActionGroup::make([
+                    Action::make('work_schedule_pdf')
+                        ->label('Jadwal PDF')
+                        ->icon('heroicon-o-document-text')
+                        ->color('success')
+                        ->form([
+                            DatePicker::make('start_date')
+                                ->label('Tanggal Mulai')
+                                ->required()
+                                ->default(now()->startOfMonth()),
+                            DatePicker::make('end_date')
+                                ->label('Tanggal Akhir')
+                                ->required()
+                                ->default(now()->endOfMonth())
+                                ->afterOrEqual('start_date')
+                                ->rules([
+                                    fn(Get $get) => function (string $attribute, $value, Closure $fail) use ($get) {
+                                        $start = Carbon::parse($get('start_date'));
+                                        $end = Carbon::parse($value);
+                                        if ($start->diffInDays($end) > 31) {
+                                            $fail('Rentang maksimal 31 hari.');
+                                        }
+                                    },
+                                ]),
+                        ])
+                        ->action(function ($record, array $data, \Livewire\Component $livewire) {
+                            $url = route('admin.users.work-schedule-pdf', [
+                                'user_id' => $record->id,
+                                'start_date' => $data['start_date'],
+                                'end_date' => $data['end_date'],
+                            ]);
+                            $livewire->js("window.open('$url', '_blank')");
+                        })
+                        ->modalSubmitActionLabel('Submit')
+                        ->modalCancelActionLabel('Batal'),
                     ViewAction::make(),
                     EditAction::make()
                         ->visible(function ($record) {
