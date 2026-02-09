@@ -11,6 +11,8 @@ use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 
 class ReligiousStudyEventForm
 {
@@ -20,17 +22,40 @@ class ReligiousStudyEventForm
             Section::make('Event Notifikasi')
                 ->columnSpanFull()
                 ->schema([
+                    Toggle::make('is_info')
+                        ->label('Info')
+                        ->live()
+                        ->afterStateUpdated(function (Get $get, Set $set, ?bool $state) {
+                            if ($state) {
+                                $set('location', null);
+                                $set('theme', null);
+                                $set('speaker', null);
+                                $set('event_at', null);
+                            }
+                        }),
                     Grid::make(2)
                         ->schema([
                             TextInput::make('title')->label('Judul')->required(),
-                            TextInput::make('location')->label('Lokasi')->required(),
-                            TextInput::make('theme')->label('Tema')->required(),
-                            TextInput::make('speaker')->label('Pemateri')->required(),
+                            TextInput::make('location')
+                                ->label('Lokasi')
+                                ->required(fn(Get $get) => !$get('is_info'))
+                                ->disabled(fn(Get $get) => $get('is_info')),
+                            TextInput::make('theme')
+                                ->label('Tema')
+                                ->required(fn(Get $get) => !$get('is_info'))
+                                ->disabled(fn(Get $get) => $get('is_info')),
+                            TextInput::make('speaker')
+                                ->label('Pemateri')
+                                ->required(fn(Get $get) => !$get('is_info'))
+                                ->disabled(fn(Get $get) => $get('is_info')),
                         ]),
 
                     Grid::make(2)
                         ->schema([
-                            DateTimePicker::make('event_at')->label('Waktu Pengajian')->required(),
+                            DateTimePicker::make('event_at')
+                                ->label('Waktu Pengajian')
+                                ->required(fn(Get $get) => !$get('is_info'))
+                                ->disabled(fn(Get $get) => $get('is_info')),
                             DateTimePicker::make('notify_at')->label('Waktu Kirim Notifikasi')->required(),
                             // Multi-select Departemen (opsional)
                             Select::make('departemen_ids')
@@ -57,7 +82,7 @@ class ReligiousStudyEventForm
                     Textarea::make('message')->label('Pesan')->rows(3)->columnSpanFull(),
                     Toggle::make('cancelled')->label('Dibatalkan'),
                     Toggle::make('isoverlay')->label('Tampilkan Overlay'),
-                    
+
 
                     FileUpload::make('image_upload')
                         ->label('Upload Gambar')

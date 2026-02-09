@@ -37,6 +37,13 @@ class CreateReligiousStudyEvent extends CreateRecord
             unset($data['image_upload']);
         }
 
+        if (!empty($data['is_info'])) {
+            $data['location'] = null;
+            $data['theme'] = null;
+            $data['speaker'] = null;
+            $data['event_at'] = null;
+        }
+
         return $data;
     }
 }

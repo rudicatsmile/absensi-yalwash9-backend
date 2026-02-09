@@ -59,6 +59,17 @@ Dashboard Filament 4 telah berhasil diinstall dan dikonfigurasi untuk sistem Lar
   - User-based notes
 - **Navigation**: General > Notes
 
+### 7. Event Notifikasi Management
+- **Resource**: ReligiousStudyEventResource
+- **Features**:
+  - CRUD operations untuk event notifikasi
+  - **Info Toggle**:
+    - Mengaktifkan mode "Info" (hanya notifikasi judul/pesan).
+    - Otomatis menonaktifkan dan mengosongkan field: Lokasi, Tema, Pemateri, dan Waktu Pengajian.
+    - Validasi dinamis menyesuaikan status toggle.
+  - Integrasi FCM Notification untuk broadcast event.
+- **Navigation**: Management Rapat > Event Notifikasi
+
 ## Database Seeders
 
 Berikut adalah data yang akan di-seed ke database:
