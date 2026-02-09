@@ -328,6 +328,7 @@ class UsersTable
                                     $selected = $get('allowed_days') ?? [];
                                     $selected = array_map('strval', is_array($selected) ? $selected : []);
                                     $userId = (int) ($get('user_id_internal') ?? 0);
+                                    $shiftId = (int) ($get('shift_id') ?? 0);
 
                                     $daysInMonth = \Carbon\Carbon::createFromDate($year, $month, 1)->daysInMonth;
                                     $options = [];
@@ -347,7 +348,7 @@ class UsersTable
 
                                         // Hapus class Tailwind yang mungkin tidak ter-load, gunakan inline style sepenuhnya
                                         // Gunakan global event dispatch untuk membuka dialog native
-                                        $icon = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="allowed-day-clock-icon cursor-pointer" style="' . $iconStyle . '" onclick="event.preventDefault(); event.stopPropagation(); console.log(\'Clock clicked for day ' . $d . '\'); window.dispatchEvent(new CustomEvent(\'open-jam-kerja-dialog\', { detail: { day: \'' . $d . '\', month: \'' . $month . '\', year: \'' . $year . '\', userId: \'' . $userId . '\' } }));"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+                                        $icon = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="allowed-day-clock-icon cursor-pointer" style="' . $iconStyle . '" onclick="event.preventDefault(); event.stopPropagation(); console.log(\'Clock clicked for day ' . $d . '\'); window.dispatchEvent(new CustomEvent(\'open-jam-kerja-dialog\', { detail: { day: \'' . $d . '\', month: \'' . $month . '\', year: \'' . $year . '\', userId: \'' . $userId . '\', shiftId: \'' . $shiftId . '\' } }));"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
 
                                         // Inline style untuk wrapper: inline-flex, align center, gap 4px, nowrap
                                         $wrapperStyle = 'display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; width: 100%;';

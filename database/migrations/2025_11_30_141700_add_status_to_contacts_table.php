@@ -12,7 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('contacts', function (Blueprint $table) {
-            $table->enum('status', ['active', 'inactive', 'pending'])->default('pending');
+            if (!Schema::hasColumn('contacts', 'status')) {
+                $table->enum('status', ['active', 'inactive', 'pending'])->default('pending');
+            }
         });
     }
 

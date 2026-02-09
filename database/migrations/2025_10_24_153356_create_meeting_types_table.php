@@ -11,13 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('meeting_types', function (Blueprint $table) {
-            $table->id();
-            $table->string('name', 100)->unique();
-            $table->integer('quota_days');
-            $table->tinyInteger('is_paid')->default(1);
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('meeting_types')) {
+            Schema::create('meeting_types', function (Blueprint $table) {
+                $table->id();
+                $table->string('name', 100)->unique();
+                $table->integer('quota_days');
+                $table->tinyInteger('is_paid')->default(1);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

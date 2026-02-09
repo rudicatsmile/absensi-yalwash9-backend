@@ -9,8 +9,10 @@ return new class extends Migration {
     {
         Schema::table('religious_study_events', function (Blueprint $table) {
             // Simpan pilihan multiple departemen & jabatan dalam bentuk JSON array (opsional)
-            $table->json('departemen_ids')->nullable()->after('jabatan_id');
-            $table->json('jabatan_ids')->nullable()->after('departemen_ids');
+            if (!Schema::hasColumn('religious_study_events', 'departemen_ids')) {
+                $table->json('departemen_ids')->nullable()->after('jabatan_id');
+                $table->json('jabatan_ids')->nullable()->after('departemen_ids');
+            }
         });
     }
 

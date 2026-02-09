@@ -12,15 +12,25 @@ return new class extends Migration {
     public function up(): void
     {
         // 1. Add the new index first so the FK on user_id has an index to use
-        Schema::table('employee_work_schedule', function (Blueprint $table) {
-            // Add new unique index including shift_id
-            $table->unique(['user_id', 'month', 'year', 'shift_id'], 'uniq_user_month_year_shift');
-        });
+        if (Schema::hasTable('employee_work_schedule')) {
+            try {
+                Schema::table('employee_work_schedule', function (Blueprint $table) {
+                    // Add new unique index including shift_id
+                    $table->unique(['user_id', 'month', 'year', 'shift_id'], 'uniq_user_month_year_shift');
+                });
+            } catch (\Exception $e) {
+                // Index likely exists
+            }
 
-        // 2. Drop the old index
-        Schema::table('employee_work_schedule', function (Blueprint $table) {
-            $table->dropUnique('uniq_user_month_year');
-        });
+            // 2. Drop the old index
+            try {
+                Schema::table('employee_work_schedule', function (Blueprint $table) {
+                    $table->dropUnique('uniq_user_month_year');
+                });
+            } catch (\Exception $e) {
+                // Index likely already dropped
+            }
+        }
     }
 
     /**

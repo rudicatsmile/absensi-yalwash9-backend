@@ -7,14 +7,16 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('user_push_tokens', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->text('token');
-            $table->char('token_hash', 64)->unique();
-            $table->string('device_info')->nullable();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('user_push_tokens')) {
+            Schema::create('user_push_tokens', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+                $table->text('token');
+                $table->char('token_hash', 64)->unique();
+                $table->string('device_info')->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void

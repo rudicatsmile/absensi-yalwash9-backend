@@ -3,18 +3,26 @@
         isLoading: false,
         isLoadingSchedule: false,
         isSaving: false,
+        isChecking: false,
         items: [],
         selected: [],
         currentDay: null,
         currentMonth: null,
         currentYear: null,
         currentUserId: null,
+        currentShiftId: null,
         error: null,
         fetchScheduleError: null,
         saveSuccess: null,
         saveError: null,
         rawSelections: $wire.entangle('mountedTableActionData.jam_kerja_custom_selections'),
         selections: {},
+        toast: {
+            show: false,
+            message: '',
+            type: 'success', // success, error
+            timeout: null
+        },
 
         init() {
             console.log('Jam Kerja Modal Initialized (Footer Version)');
@@ -34,38 +42,99 @@
             }
         },
 
-        openDialog(day, month, year, userId) {
-            console.log('openDialog executed:', day, month, year, userId);
+        showToast(message, type = 'success') {
+            this.toast.message = message;
+            this.toast.type = type;
+            this.toast.show = true;
+
+            if (this.toast.timeout) clearTimeout(this.toast.timeout);
+
+            this.toast.timeout = setTimeout(() => {
+                this.toast.show = false;
+            }, 5000);
+        },
+
+        async openDialog(day, month, year, userId, shiftId) {
+            console.log('openDialog executed:', day, month, year, userId, shiftId);
+
+            if (!shiftId || shiftId == '0') {
+                this.showToast('Silakan pilih Shift Kerja terlebih dahulu.', 'error');
+                return;
+            }
+
             this.currentDay = day;
             this.currentMonth = month;
             this.currentYear = year;
             this.currentUserId = userId;
+            this.currentShiftId = shiftId;
             this.saveSuccess = null;
             this.saveError = null;
             this.fetchScheduleError = null;
+            this.isChecking = true;
 
-            this.loadItems();
-            this.loadSchedule();
-            
-            // Show modal using ref
-            if (this.$refs.jamKerjaDialog) {
-                this.$refs.jamKerjaDialog.showModal();
-            } else {
-                console.error('Dialog ref not found!');
+            // 1. Pre-check validation
+            try {
+                const params = new URLSearchParams({
+                    user_id: userId,
+                    month: month,
+                    year: year,
+                    shift_id: shiftId
+                });
+
+                const response = await fetch(`/admin/ajax/check-work-schedule?${params.toString()}`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    if (response.status === 400) {
+                        throw new Error(result.message || 'Data permintaan tidak lengkap.');
+                    } else if (response.status === 500) {
+                        throw new Error('Gagal memvalidasi jadwal kerja. Silakan coba lagi.');
+                    } else {
+                        throw new Error(result.message || 'Terjadi kesalahan saat memvalidasi jadwal.');
+                    }
+                }
+
+                if (result.success && result.exists) {
+                    // Valid: Proceed to open modal
+                    this.loadItems();
+                    this.loadSchedule();
+
+                    if (this.$refs.jamKerjaDialog) {
+                        this.$refs.jamKerjaDialog.showModal();
+                    } else {
+                        console.error('Dialog ref not found!');
+                    }
+                } else {
+                    // Invalid: Show toast
+                    this.showToast('Jadwal kerja untuk karyawan ini pada bulan & tahun yang dipilih belum dibuat. Silakan buat jadwal terlebih dahulu.', 'error');
+                }
+
+            } catch (err) {
+                console.error('Check schedule error:', err);
+                this.showToast(err.message || 'Gagal memvalidasi jadwal kerja. Silakan coba lagi.', 'error');
+            } finally {
+                this.isChecking = false;
             }
         },
 
         async loadSchedule() {
              this.isLoadingSchedule = true;
              this.fetchScheduleError = null;
-             this.selected = []; 
+             this.selected = [];
 
              try {
                 const params = new URLSearchParams({
                     user_id: this.currentUserId,
                     day: this.currentDay,
                     month: this.currentMonth,
-                    year: this.currentYear
+                    year: this.currentYear,
+                    shift_id: this.currentShiftId
                 });
                 const response = await fetch(`/admin/ajax/get-work-schedule?${params.toString()}`);
                 if (!response.ok) throw new Error('Gagal mengambil jadwal');
@@ -140,6 +209,7 @@
                     },
                     body: JSON.stringify({
                         user_id: this.currentUserId,
+                        shift_id: this.currentShiftId,
                         day: this.currentDay,
                         month: this.currentMonth,
                         year: this.currentYear,
@@ -165,9 +235,82 @@
             }
         }
     }"
-    @open-jam-kerja-dialog.window="openDialog($event.detail.day, $event.detail.month, $event.detail.year, $event.detail.userId)"
+    @open-jam-kerja-dialog.window="openDialog($event.detail.day, $event.detail.month, $event.detail.year, $event.detail.userId, $event.detail.shiftId)"
     wire:ignore
 >
+    <!-- Loading Overlay -->
+    <template x-teleport="body">
+        <div
+            x-show="isChecking"
+            style="
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.3);
+                z-index: 100002;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            "
+        >
+            <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 12px;">
+                <svg class="animate-spin" style="width: 24px; height: 24px; color: #3b82f6;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span style="font-weight: 500; color: #374151;">Memeriksa jadwal...</span>
+            </div>
+        </div>
+    </template>
+
+    <!-- Toast Notification -->
+    <template x-teleport="body">
+        <div
+            x-show="toast.show"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 transform translate-y-2"
+            x-transition:enter-end="opacity-100 transform translate-y-0"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 transform translate-y-0"
+            x-transition:leave-end="opacity-0 transform translate-y-2"
+            style="
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                z-index: 100003;
+                max-width: 400px;
+                padding: 16px;
+                border-radius: 8px;
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+            "
+            :style="toast.type === 'error' ? 'background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca;' : 'background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;'"
+        >
+            <div x-show="toast.type === 'error'">
+                <svg style="width: 20px; height: 20px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div x-show="toast.type === 'success'">
+                <svg style="width: 20px; height: 20px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div style="flex: 1; font-size: 0.875rem; line-height: 1.25rem;">
+                <span x-text="toast.message"></span>
+            </div>
+            <button @click="toast.show = false" style="opacity: 0.7; cursor: pointer;">
+                <svg style="width: 16px; height: 16px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+    </template>
+
     <template x-teleport="body">
         <dialog
             x-ref="jamKerjaDialog"

@@ -11,7 +11,9 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('attendances', function (Blueprint $table) {
-            $table->boolean('is_overtime')->default(false)->after('holiday_work');
+            if (!Schema::hasColumn('attendances', 'is_overtime')) {
+                $table->boolean('is_overtime')->default(false)->after('holiday_work');
+            }
         });
     }
 

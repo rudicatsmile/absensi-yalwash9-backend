@@ -8,8 +8,10 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('religious_study_events', function (Blueprint $table) {
-            $table->string('image_path')->nullable()->after('message');
-            $table->index('image_path');
+            if (!Schema::hasColumn('religious_study_events', 'image_path')) {
+                $table->string('image_path')->nullable()->after('message');
+                $table->index('image_path');
+            }
         });
     }
 

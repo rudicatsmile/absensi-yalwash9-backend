@@ -11,21 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('meetings', function (Blueprint $table) {
-            $table->id();
-            $table->integer('employee_id');
-            $table->integer('meeting_type_id');
-            $table->date('date');
-            $table->time('start_time');
-            $table->time('end_time');
-            $table->text('reason');
-            $table->string('document', 255)->nullable();
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
-            $table->text('notes')->nullable();
-            $table->integer('approved_by')->nullable();
-            $table->timestamp('approved_at')->nullable();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('meetings')) {
+            Schema::create('meetings', function (Blueprint $table) {
+                $table->id();
+                $table->integer('employee_id');
+                $table->integer('meeting_type_id');
+                $table->date('date');
+                $table->time('start_time');
+                $table->time('end_time');
+                $table->text('reason');
+                $table->string('document', 255)->nullable();
+                $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+                $table->text('notes')->nullable();
+                $table->integer('approved_by')->nullable();
+                $table->timestamp('approved_at')->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     /**

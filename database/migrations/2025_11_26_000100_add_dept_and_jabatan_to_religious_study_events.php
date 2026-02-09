@@ -8,12 +8,14 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('religious_study_events', function (Blueprint $table) {
-            $table->unsignedBigInteger('departemen_id')->nullable()->after('notified');
-            $table->unsignedBigInteger('jabatan_id')->nullable()->after('departemen_id');
-            $table->index('departemen_id');
-            $table->index('jabatan_id');
-            $table->foreign('departemen_id')->references('id')->on('departemens')->onDelete('set null');
-            $table->foreign('jabatan_id')->references('id')->on('jabatans')->onDelete('set null');
+            if (!Schema::hasColumn('religious_study_events', 'departemen_id')) {
+                $table->unsignedBigInteger('departemen_id')->nullable()->after('notified');
+                $table->unsignedBigInteger('jabatan_id')->nullable()->after('departemen_id');
+                $table->index('departemen_id');
+                $table->index('jabatan_id');
+                $table->foreign('departemen_id')->references('id')->on('departemens')->onDelete('set null');
+                $table->foreign('jabatan_id')->references('id')->on('jabatans')->onDelete('set null');
+            }
         });
     }
 

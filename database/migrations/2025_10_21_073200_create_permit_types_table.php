@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('permit_types', function (Blueprint $table) {
-            $table->id();
-            $table->string('name', 250);
-            $table->integer('quota_days');
-            $table->boolean('is_paid')->default(true);
-            $table->integer('urut');
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('permit_types')) {
+            Schema::create('permit_types', function (Blueprint $table) {
+                $table->id();
+                $table->string('name', 250);
+                $table->integer('quota_days');
+                $table->boolean('is_paid')->default(true);
+                $table->integer('urut');
+                $table->timestamps();
+            });
+        }
     }
 
     /**

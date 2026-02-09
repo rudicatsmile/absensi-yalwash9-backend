@@ -11,26 +11,28 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('work_shift_user', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('work_shift_id')
-                  ->constrained('work_shifts')
-                  ->onDelete('cascade')
-                  ->comment('Foreign key ke tabel work_shifts');
-            $table->foreignId('user_id')
-                  ->constrained('users')
-                  ->onDelete('cascade')
-                  ->comment('Foreign key ke tabel users');
-            $table->timestamps();
+        if (!Schema::hasTable('work_shift_user')) {
+            Schema::create('work_shift_user', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('work_shift_id')
+                    ->constrained('work_shifts')
+                    ->onDelete('cascade')
+                    ->comment('Foreign key ke tabel work_shifts');
+                $table->foreignId('user_id')
+                    ->constrained('users')
+                    ->onDelete('cascade')
+                    ->comment('Foreign key ke tabel users');
+                $table->timestamps();
 
-            // Create unique constraint to prevent duplicate assignments
-            $table->unique(['work_shift_id', 'user_id'], 'unique_work_shift_user');
+                // Create unique constraint to prevent duplicate assignments
+                $table->unique(['work_shift_id', 'user_id'], 'unique_work_shift_user');
 
-            // Create indexes for better performance
-            $table->index('work_shift_id', 'idx_work_shift_user_work_shift_id');
-            $table->index('user_id', 'idx_work_shift_user_user_id');
-            $table->index('created_at', 'idx_work_shift_user_created_at');
-        });
+                // Create indexes for better performance
+                $table->index('work_shift_id', 'idx_work_shift_user_work_shift_id');
+                $table->index('user_id', 'idx_work_shift_user_user_id');
+                $table->index('created_at', 'idx_work_shift_user_created_at');
+            });
+        }
     }
 
     /**

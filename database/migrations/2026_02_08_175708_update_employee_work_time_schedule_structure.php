@@ -10,26 +10,28 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::table('employee_work_time_schedule', function (Blueprint $table) {
-            // Drop existing foreign key and index
-            $table->dropForeign(['employee_id']);
-            $table->dropIndex(['employee_id', 'schedule_date']);
+        if (Schema::hasTable('employee_work_time_schedule') && !Schema::hasColumn('employee_work_time_schedule', 'user_id')) {
+            Schema::table('employee_work_time_schedule', function (Blueprint $table) {
+                // Drop existing foreign key and index
+                $table->dropForeign(['employee_id']);
+                $table->dropIndex(['employee_id', 'schedule_date']);
 
-            // Rename column
-            $table->renameColumn('employee_id', 'user_id');
+                // Rename column
+                $table->renameColumn('employee_id', 'user_id');
 
-            // Add new foreign key for user_id
-            $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
+                // Add new foreign key for user_id
+                $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
 
-            // Add shift_id column
-            $table->foreignId('shift_id')->nullable()->after('user_id')->constrained('shift_kerjas')->nullOnDelete();
+                // Add shift_id column
+                $table->foreignId('shift_id')->nullable()->after('user_id')->constrained('shift_kerjas')->nullOnDelete();
 
-            // Add index for shift_id
-            $table->index('shift_id');
+                // Add index for shift_id
+                $table->index('shift_id');
 
-            // Add new index for user_id and schedule_date
-            $table->index(['user_id', 'schedule_date']);
-        });
+                // Add new index for user_id and schedule_date
+                $table->index(['user_id', 'schedule_date']);
+            });
+        }
     }
 
     /**
