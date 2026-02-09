@@ -19,9 +19,9 @@ class WorkScheduleStoreTest extends TestCase
         // 1. Setup Data
         $user = User::factory()->create();
         $admin = User::factory()->create(); // Acting as admin
-        
+
         $shift = ShiftKerja::factory()->create();
-        
+
         // Attach user to shift (populate shift_kerja_user pivot)
         DB::table('shift_kerja_user')->insert([
             'user_id' => $user->id,
@@ -66,7 +66,7 @@ class WorkScheduleStoreTest extends TestCase
         // 1. Setup Data
         $user = User::factory()->create();
         $admin = User::factory()->create();
-        
+
         $shift = ShiftKerja::factory()->create();
         // Do NOT attach user to shift
 
@@ -101,7 +101,7 @@ class WorkScheduleStoreTest extends TestCase
         // 1. Setup Data
         $user = User::factory()->create();
         $admin = User::factory()->create();
-        
+
         $jamKerja = JamKerja::create([
             'code' => 'JK01',
             'name' => 'Pagi',
@@ -126,5 +126,67 @@ class WorkScheduleStoreTest extends TestCase
         // 3. Assert
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['shift_id']);
+    }
+
+    public function test_update_schedule_only_affects_specific_shift()
+    {
+        // 1. Setup Data
+        $user = User::factory()->create();
+        $admin = User::factory()->create();
+
+        $shift5 = ShiftKerja::factory()->create(['name' => 'Shift 5']);
+        $shift6 = ShiftKerja::factory()->create(['name' => 'Shift 6']);
+
+        // Attach user to both shifts
+        DB::table('shift_kerja_user')->insert([
+            ['user_id' => $user->id, 'shift_kerja_id' => $shift5->id],
+            ['user_id' => $user->id, 'shift_kerja_id' => $shift6->id],
+        ]);
+
+        $jamKerja = JamKerja::create([
+            'name' => 'Pagi',
+            'start_time' => '08:00:00',
+            'end_time' => '16:00:00',
+            'is_active' => true,
+        ]);
+
+        // Create initial schedule for Shift 5
+        EmployeeWorkTimeSchedule::create([
+            'user_id' => $user->id,
+            'shift_id' => $shift5->id,
+            'jam_kerja_id' => $jamKerja->id,
+            'schedule_date' => '2026-02-25',
+            'start_time' => '08:00:00',
+            'end_time' => '16:00:00',
+        ]);
+
+        // 2. Act: Save schedule for Shift 6 on the SAME date
+        $payload = [
+            'user_id' => $user->id,
+            'shift_id' => $shift6->id,
+            'day' => 25,
+            'month' => 2,
+            'year' => 2026,
+            'jam_kerja_ids' => [$jamKerja->id],
+        ];
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.ajax.save-work-schedule'), $payload)
+            ->assertStatus(200);
+
+        // 3. Assert
+        // Shift 5 schedule should STILL exist
+        $this->assertDatabaseHas('employee_work_time_schedule', [
+            'user_id' => $user->id,
+            'shift_id' => $shift5->id,
+            'schedule_date' => '2026-02-25',
+        ]);
+
+        // Shift 6 schedule should ALSO exist
+        $this->assertDatabaseHas('employee_work_time_schedule', [
+            'user_id' => $user->id,
+            'shift_id' => $shift6->id,
+            'schedule_date' => '2026-02-25',
+        ]);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users\Pages;
 
 use App\Filament\Resources\Users\UserResource;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
@@ -16,6 +17,14 @@ class ListUsers extends ListRecords
     {
         $actions = [];
         if (auth()->check() && in_array(auth()->user()->role, ['admin', 'kepala_lembaga', 'manager'], true)) {
+            $actions[] = Action::make('report')
+                ->label('Laporan Jadwal')
+                ->icon('heroicon-o-document-text')
+                ->modalContent(view('filament.pages.report-modal'))
+                ->modalSubmitAction(false)
+                ->modalCancelAction(false)
+                ->modalWidth('7xl');
+
             $actions[] = CreateAction::make();
         }
         return $actions;
