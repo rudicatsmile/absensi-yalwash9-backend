@@ -17,6 +17,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
 use UnitEnum;
 
@@ -44,11 +45,7 @@ class LaporanAbsensi extends Page implements HasTable
                     ->sortable()
                     ->searchable(),
 
-                TextColumn::make('user.position')
-                    ->label('Jabatan')
-                    ->sortable(),
-
-                TextColumn::make('user.department')
+                TextColumn::make('user.departemen.name')
                     ->label('Departemen')
                     ->sortable(),
 
@@ -70,7 +67,7 @@ class LaporanAbsensi extends Page implements HasTable
                 TextColumn::make('working_hours')
                     ->label('Jam Kerja')
                     ->state(function (Attendance $record): string {
-                        if (! $record->time_in || ! $record->time_out) {
+                        if (!$record->time_in || !$record->time_out) {
                             return '-';
                         }
 
@@ -84,18 +81,18 @@ class LaporanAbsensi extends Page implements HasTable
                 TextColumn::make('status')
                     ->label('Status')
                     ->state(function (Attendance $record): string {
-                        if (! $record->time_in) {
+                        if (!$record->time_in) {
                             return 'Tidak Masuk';
                         }
 
-                        if (! $record->time_out) {
+                        if (!$record->time_out) {
                             return 'Belum Pulang';
                         }
 
                         return 'Hadir';
                     })
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'Hadir' => 'success',
                         'Belum Pulang' => 'warning',
                         'Tidak Masuk' => 'danger',
@@ -115,20 +112,20 @@ class LaporanAbsensi extends Page implements HasTable
                         return $query
                             ->when(
                                 $data['start_date'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('date', '>=', $data['start_date']),
+                                fn(Builder $query, $date): Builder => $query->whereDate('date', '>=', $data['start_date']),
                             )
                             ->when(
                                 $data['end_date'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('date', '<=', $data['end_date']),
+                                fn(Builder $query, $date): Builder => $query->whereDate('date', '<=', $data['end_date']),
                             );
                     })
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['start_date'] ?? null) {
-                            $indicators['start_date'] = 'Dari: '.Carbon::parse($data['start_date'])->format('d/m/Y');
+                            $indicators['start_date'] = 'Dari: ' . Carbon::parse($data['start_date'])->format('d/m/Y');
                         }
                         if ($data['end_date'] ?? null) {
-                            $indicators['end_date'] = 'Sampai: '.Carbon::parse($data['end_date'])->format('d/m/Y');
+                            $indicators['end_date'] = 'Sampai: ' . Carbon::parse($data['end_date'])->format('d/m/Y');
                         }
 
                         return $indicators;
@@ -138,16 +135,16 @@ class LaporanAbsensi extends Page implements HasTable
                     ->label('Karyawan')
                     ->options(User::all()->pluck('name', 'id'))
                     ->searchable()
-                    ->visible(fn () => !auth()->check() || auth()->user()->role !== 'employee'),
+                    ->visible(fn() => !auth()->check() || auth()->user()->role !== 'employee'),
 
                 Filter::make('today')
                     ->label('Hari Ini')
-                    ->query(fn (Builder $query): Builder => $query->whereDate('date', now()))
+                    ->query(fn(Builder $query): Builder => $query->whereDate('date', now()))
                     ->toggle(),
 
                 Filter::make('this_week')
                     ->label('Minggu Ini')
-                    ->query(fn (Builder $query): Builder => $query->whereBetween('date', [
+                    ->query(fn(Builder $query): Builder => $query->whereBetween('date', [
                         now()->startOfWeek(),
                         now()->endOfWeek(),
                     ]))
@@ -155,7 +152,7 @@ class LaporanAbsensi extends Page implements HasTable
 
                 Filter::make('this_month')
                     ->label('Bulan Ini')
-                    ->query(fn (Builder $query): Builder => $query->whereBetween('date', [
+                    ->query(fn(Builder $query): Builder => $query->whereBetween('date', [
                         now()->startOfMonth(),
                         now()->endOfMonth(),
                     ]))
@@ -165,7 +162,7 @@ class LaporanAbsensi extends Page implements HasTable
                 ActionsAction::make('detail')
                     ->label('Detail')
                     ->icon('heroicon-o-eye')
-                    ->modalHeading(fn (Attendance $record): string => "Detail Absensi - {$record->user->name}")
+                    ->modalHeading(fn(Attendance $record): string => "Detail Absensi - {$record->user->name}")
                     ->modalContent(function (Attendance $record): string {
                         $timeIn = $record->time_in ? Carbon::parse($record->time_in)->format('H:i') : '-';
                         $timeOut = $record->time_out ? Carbon::parse($record->time_out)->format('H:i') : '-';
@@ -189,7 +186,7 @@ class LaporanAbsensi extends Page implements HasTable
                     ->label('Export PDF')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('success')
-                    ->action('exportPdf'),
+                    ->action(fn() => $this->exportPdf()),
 
                 ActionsAction::make('export_excel')
                     ->label('Export Excel')
@@ -206,7 +203,7 @@ class LaporanAbsensi extends Page implements HasTable
     protected function getTableQuery(): Builder
     {
         $query = Attendance::query()
-            ->with(['user:id,name,position,department'])
+            ->with(['user.departemen'])
             ->select('id', 'user_id', 'date', 'time_in', 'time_out', 'latlon_in', 'latlon_out', 'created_at', 'updated_at')
             ->orderBy('date', 'desc');
 
@@ -214,7 +211,7 @@ class LaporanAbsensi extends Page implements HasTable
             $query->where('user_id', auth()->id());
         }
 
-        if (auth()->check() && in_array(auth()->user()->role, ['manager','kepala_sub_bagian'], true)) {
+        if (auth()->check() && in_array(auth()->user()->role, ['manager', 'kepala_sub_bagian'], true)) {
             $query->whereHas('user', fn(Builder $uq) => $uq->where('departemen_id', auth()->user()->departemen_id));
         }
 
@@ -223,41 +220,42 @@ class LaporanAbsensi extends Page implements HasTable
 
     public function exportPdf()
     {
+        Log::info('Export PDF triggered.');
         try {
             // Get filtered data from the table
             $query = $this->getFilteredTableQuery();
-            $attendances = $query->with(['user'])->get();
+            $attendances = $query->with(['user.departemen'])->get();
+
+            Log::info('Fetched ' . $attendances->count() . ' records.');
 
             // Create PDF using blade view
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('filament.pages.laporan-absensi-pdf', [
                 'attendances' => $attendances,
                 'exported_at' => now()->format('d/m/Y H:i'),
                 'total_records' => $attendances->count(),
-            ])
-                ->setPaper('A4', 'landscape')
-                ->setOptions([
-                    'dpi' => 150,
-                    'defaultFont' => 'sans-serif',
-                    'isHtml5ParserEnabled' => true,
-                    'isRemoteEnabled' => true,
-                ]);
+            ])->setPaper('A4', 'landscape');
 
-            $filename = 'laporan-absensi-'.now()->format('d-m-Y-H-i-s').'.pdf';
+            $filename = 'laporan-absensi-' . now()->format('d-m-Y-H-i-s') . '.pdf';
 
-            Notification::make()
-                ->title('PDF berhasil diunduh')
-                ->success()
-                ->send();
+            Log::info('PDF generated, returning download response.');
 
             return response()->streamDownload(function () use ($pdf) {
+                if (ob_get_length()) {
+                    ob_end_clean();
+                }
                 echo $pdf->output();
             }, $filename);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            Log::error('PDF Export Error: ' . $e->getMessage());
+            Log::error($e->getTraceAsString());
+
             Notification::make()
                 ->title('Export PDF Gagal')
-                ->body('Terjadi kesalahan saat mengexport PDF: '.$e->getMessage())
+                ->body('Terjadi kesalahan: ' . $e->getMessage())
                 ->danger()
                 ->send();
+
+            return null;
         }
     }
 
@@ -266,9 +264,9 @@ class LaporanAbsensi extends Page implements HasTable
         try {
             // Get filtered data from the table
             $query = $this->getFilteredTableQuery();
-            $attendances = $query->with(['user'])->get();
+            $attendances = $query->with(['user.departemen'])->get();
 
-            $csvData = "No,Nama Karyawan,Jabatan,Departemen,Tanggal,Jam Masuk,Jam Keluar,Jam Kerja,Status\n";
+            $csvData = "No,Nama Karyawan,Departemen,Tanggal,Jam Masuk,Jam Keluar,Jam Kerja,Status\n";
 
             foreach ($attendances as $index => $attendance) {
                 $timeIn = $attendance->time_in ? Carbon::parse($attendance->time_in)->format('H:i') : '-';
@@ -281,18 +279,17 @@ class LaporanAbsensi extends Page implements HasTable
                 }
 
                 $status = 'Hadir';
-                if (! $attendance->time_in) {
+                if (!$attendance->time_in) {
                     $status = 'Tidak Masuk';
-                } elseif (! $attendance->time_out) {
+                } elseif (!$attendance->time_out) {
                     $status = 'Belum Pulang';
                 }
 
                 $csvData .= sprintf(
-                    "%d,%s,%s,%s,%s,%s,%s,%s,%s\n",
+                    "%d,%s,%s,%s,%s,%s,%s,%s\n",
                     $index + 1,
-                    $attendance->user->name,
-                    $attendance->user->position ?? '-',
-                    $attendance->user->department ?? '-',
+                    $attendance->user->name ?? 'User Terhapus',
+                    $attendance->user?->departemen?->name ?? $attendance->user?->department ?? '-',
                     Carbon::parse($attendance->date)->format('d/m/Y'),
                     $timeIn,
                     $timeOut,
@@ -301,7 +298,7 @@ class LaporanAbsensi extends Page implements HasTable
                 );
             }
 
-            $filename = 'laporan-absensi-'.now()->format('d-m-Y-H-i-s').'.csv';
+            $filename = 'laporan-absensi-' . now()->format('d-m-Y-H-i-s') . '.csv';
 
             Notification::make()
                 ->title('Excel berhasil diunduh')
@@ -310,7 +307,7 @@ class LaporanAbsensi extends Page implements HasTable
 
             return Response::make($csvData, 200, [
                 'Content-Type' => 'text/csv; charset=UTF-8',
-                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
                 'Cache-Control' => 'no-cache, no-store, must-revalidate',
                 'Pragma' => 'no-cache',
                 'Expires' => '0',
@@ -318,7 +315,7 @@ class LaporanAbsensi extends Page implements HasTable
         } catch (\Exception $e) {
             Notification::make()
                 ->title('Export Excel Gagal')
-                ->body('Terjadi kesalahan saat mengexport Excel: '.$e->getMessage())
+                ->body('Terjadi kesalahan saat mengexport Excel: ' . $e->getMessage())
                 ->danger()
                 ->send();
         }

@@ -21,6 +21,7 @@ class ReligiousStudyEventController extends Controller
 
             $events = ReligiousStudyEvent::query()
                 ->where('cancelled', $cancelled)
+                ->where('is_info', 0)
                 ->orderBy('event_at', 'asc')
                 ->get();
 
