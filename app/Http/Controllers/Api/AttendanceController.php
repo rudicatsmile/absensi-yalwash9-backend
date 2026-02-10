@@ -36,8 +36,16 @@ class AttendanceController extends Controller
         $resolvedShiftId = $scheduledShiftId ?? $request->shift_kerja_id;
         $activeShift = $resolvedShiftId ? ShiftKerja::query()->find($resolvedShiftId) : null;
 
-        $isWeekend = WorkdayCalculator::isWeekend($currentDateTime->copy());
-        $isHoliday = WorkdayCalculator::isHoliday($currentDateTime->copy());
+        // $isWeekend = WorkdayCalculator::isWeekend($currentDateTime->copy());
+        // $isHoliday = WorkdayCalculator::isHoliday($currentDateTime->copy());
+
+        // Force weekend and holiday to false so employees are counted as present even on holidays/weekends
+        // $isWeekend = false;
+        // $isHoliday = false;
+
+        // Force weekend and holiday to 0 so employees are counted as present even on holidays/weekends
+        $isWeekend = 0;
+        $isHoliday = 0;
 
         $status = 'on_time';
         $lateMinutes = 0;
